@@ -29,21 +29,21 @@ From C3Serial Disk Dump Program
     ; 0x80, tklo, tkhi, <reset ACIA to 8N1> 0x1F ... data ...
 
 
-From OS65D Tutorial Document
-----------------------------
+From OS65D Tutorial Document (Page 57)
+--------------------------------------
 
-+ Page 57
 + Tracks start 1 msec after the index hole
 + Track zero has a unique header read by choosing "D"
 + Track zero header has three bytes
-    + load address hi byte
-    + load address lo byte
-    + number of pages on track zero
+    + load address hi byte           normally=0x22
+    + load address lo byte           normally=0x00
+    + number of pages on track zero  normally=0x08
 + The rest of the tracks have a four byte header
     + byte one $43
     + byte two $57 
     + track number as two digit BCD number
     + byte four $58
+
 
 From Review of Disk Images
 --------------------------
