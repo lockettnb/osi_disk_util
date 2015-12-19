@@ -1,0 +1,90 @@
+
+2015/12/05
+Collection of Notes on OS65D Disks
+==================================
+
+From C3Serial Disk Dump Program
+-------------------------------
+    ;Track 0 format
+    ;10 millisecond delay after index hole
+    ;0,1 load address of the track in hi,lo form
+    ;2, page count of how much data is written on track 0, usually 8
+    ;3+ data
+
+    ;Track 1-n Format
+    ;0,1 -a 2 byte start code $43, $57
+    ;2,  -BCD track number
+    ;3,  -track type code (always $58)
+
+    ; sector data
+    ;1,  -sector start code $76
+    ;1,  -sector number in binary
+    ;1   -sector length (#pages) in binary
+    ;x   -sector data (1-8/12 pages)
+    ;2   -end of sector mark $47, $53
+    ; next sector
+
+    ;track 1-76 format
+    ; 8E1 
+    ; 0x80, tklo, tkhi, <reset ACIA to 8N1> 0x1F ... data ...
+
+
+From OS65D Tutorial Document
+----------------------------
+
++ Page 57
++ Tracks start 1 msec after the index hole
++ Track zero has a unique header read by choosing "D"
++ Track zero header has three bytes
+    + load address hi byte
+    + load address lo byte
+    + number of pages on track zero
++ The rest of the tracks have a four byte header
+    + byte one $43
+    + byte two $57 
+    + track number as two digit BCD number
+    + byte four $58
+
+From Review of Disk Images
+--------------------------
+For this particular image Track 1 started at byte offset $0f00.
+
+------------------------------------------- Track Header
+0f00 43     first byte of track header
+0f01 57     second byte of track header
+0f02 01     track number in BCD format
+0f03 05     number of pages
+------------------------------------------- Sector 1
+0f04 76     start of sector header
+0f05 01     sector number in binary
+0f06 05     number of pages
+0f07 xx     first byte of data 
+0f08 xx
+.    xx       0f08 +(256*pages)-1 = 1406
+.    xx       0f08 + 04ff        = 1406
+.    xx
+1406 xx     last byte of data
+1407 47     end of sector marker 1st byte 
+1408 52     end of sector marker 2nd byte
+------------------------------------------- Sector 2
+1409 76     start of sector header
+140a 01     sector number in binary
+140b 05     number of pages
+140c xx     first byte of data 
+.    xx       0f08 +(256*pages)-1 = 1406
+.    xx       0f08 + 04ff        = 1406
+.    xx
+190b xx     last byte of data
+190c 47     end of sector marker 1st byte 
+190d 52     end of sector marker 2nd byte
+-------------------------------------------
+190a 00
+.    00
+.    00     undefine data at end of the track 
+.    00
+------------------------------------------- Next Track 
+0000 43     first byte of track header
+0001 57     second byte of track header
+0002 01     track number in BCD format
+0003 05     number of pages
+
