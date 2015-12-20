@@ -88,3 +88,53 @@ For this particular image Track 1 started at byte offset $0f00.
 0002 01     track number in BCD format
 0003 05     number of pages
 
+
+
+Directory Listings
+------------------
+
+Track 8 sectors 1 and 2 hold the directory listing.
+The format is very simple
+
+    + six bytes for name followed by
+    + two bytes for start and end track
+    + sector 1 has 32 entries
+    + secrot 2 as 32 entries
+    + blank entries have a # (0x23) at start of name
+
+Code extract from the DIR command
+
+     10030 PRINT #DV : PRINT #DV,"OS-65D VERSION 3.2  NMHZ"
+     10035 PRINT #DV," -- DIRECTORY --" : PRINT #DV
+     10040 PRINT #DV,"FILE NAME    TRACK RANGE"
+     10050 PRINT #DV,"------------------------"
+
+    +load first sector into memory
+     10060 DISK ! "CALL 2E79=08,1"
+     10070 GOSUB 11000
+    +load second sector into memory
+     10080 DISK ! "CALL 2E79=08,2"
+     10090 GOSUB 11000
+    +print number of free (empty) directory entries
+     10130 PRINT #DV : PRINT #DV,NF;"ENTRIES FREE OUT OF 64" : PRINT #DV
+     10140 END
+
+     11010 REM READ DIRECTORY OUT OF BUFFER INTO ARRAYS
+    + PN points to memory location 11897 (0x2e79)
+     11040 FOR I=PN TO PN+248 STEP 8
+
+    +if char is # then this is a free entry
+     11050 IF PEEK(I)=35 THEN NF=NF+1 : GOTO 11130
+
+    +read name from first six bytes
+     11060 N$=""
+     11070 FOR J=I TO I+5
+     11080 N$=N$+CHR$(PEEK(J))
+     11090 NEXT J
+    +print name and start track (7th byte) and end track (8th byte)
+     11100 PRINT #DV,N$;TAB(12);FNA(PEEK(I+6));TAB(16);"-";
+     11110 PRINT #DV,TAB(17);FNA(PEEK(I+7))
+     11130 NEXT I
+     11140 RETURN
+
+
