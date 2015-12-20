@@ -21,19 +21,18 @@ char *program_name;
 
 
 // Option Flags set 
-int examine = TRUE;
+int examine = FALSE;
+int directory = FALSE;
 int ascii   = TRUE;
 int binary  = FALSE;
 int verbose = FALSE;
 int help    = FALSE;
 int version = FALSE;
-int debug   = FALSE;
 
 struct option long_options[] =
      {
        {"help",    no_argument, &help,    TRUE},
        {"version", no_argument, &version, TRUE},
-       {"debug",   no_argument,       0, 'd'},
        {"verbose", no_argument,       0, 'v'},
        {"examine", no_argument,       0, 'x'},
        {"ascii", no_argument,         0, 'a'},
@@ -50,11 +49,11 @@ char *instructions[] = {
     " ",
     " dds [options] FILE ",
     "   -x   --examine      : examine all tracks for valid headers/sectors",
+    "   -d   --directory    : display directory listing from disk image",
     "   -a   --ascii        : write disk image in ascii ",
     "   -b   --binary       : write disk image in binary ",
     "   -o   --output fname : output file name",
     "   -v,  --verbose      : enable verbose output",
-    "   -d,  --debug        : display program debug information",
     "        --help         : display help and exit",
     "        --version      : print version information and exit",
     " ",
@@ -112,7 +111,7 @@ switch (optc) {
         break;
 
     case 'd':
-        debug = TRUE;
+        directory = TRUE;
         break;
 
     case 'v':
@@ -146,9 +145,9 @@ else {
     }
 }
 
-printf("disk size = %i (0x%06x)\n", total_bytes, total_bytes);
-//     printhex(disk, 0, 3000);
-scandisk(disk, total_bytes);
+verbose_print("disk size = %i (0x%06x)\n", total_bytes, total_bytes);
+if(examine) scandisk(disk, total_bytes);
+if(directory) dir(disk, total_bytes);
 
 exit(SUCCESS);
 }   /* main */

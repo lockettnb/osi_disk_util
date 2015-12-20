@@ -11,6 +11,7 @@
 #define FAIL -1
 
 #define verbose_print(...)  do { if (verbose) printf(__VA_ARGS__ ); } while (0)
+#define debug_print(...)  do { if (verbose) printf(__VA_ARGS__ ); } while (0)
 
 
 // the disk image is ASCII chars in rows of 16 bytes
@@ -23,6 +24,7 @@
 // 0-76 tracks or 16 pages 
 #define TRACKSIZE 4096
 #define TRACKS 77
+#define DIRTRACK 8
 #define FULL_DISK TRACKS*TRACKSIZE
 
 /* Option Flags set by `--options' */

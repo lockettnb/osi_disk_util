@@ -12,7 +12,16 @@
 
 #include "ddscan.h"
 
-// *****************************************************
+// -----------------------------------------------------
+// convert byte from BCD to binary
+int bcdtobin(uint8_t bcd)
+{
+    return (bcd&0x0f) + ((bcd&0xf0)>>4)*10;
+}
+
+
+
+// -----------------------------------------------------
 // scan disk looking track, sectors, page count
 //
 //  2015/12/18 created
@@ -63,7 +72,7 @@ int hi, low, pages;
         while (seek_for != track) {              // seek to next track
         if(disk[dh]==0x43 && disk[dh+1]==0x57) {
                 // convert BCD track number to binary
-                track=(disk[dh+2]&0x0f)+((disk[dh+2]&0xf0)>>4)*10;
+                track=bcdtobin( disk[dh+2] );
                 track_type=disk[dh+3];
         } else {
             dh++;
@@ -109,4 +118,94 @@ int hi, low, pages;
     } // reading tracks
 
 
+}
+
+// -----------------------------------------------------------
+// load sector into memory 
+//  2015/12/18 created
+int loadsector(uint8_t disk[], int disksize, uint8_t buffer[], int seek_track, int seek_sector)
+{
+int track=99;
+int sector=99;
+int pages;
+int dh=0;             // disk head location
+int i;
+
+    debug_print(">>seeking track=%i sector=%i\n", seek_track, seek_sector);
+
+while (seek_track != track) {              // seek to next track
+    if(disk[dh]==0x43 && disk[dh+1]==0x57) {
+        // convert BCD track number to binary
+        track=(disk[dh+2]&0x0f)+((disk[dh+2]&0xf0)>>4)*10;
+        debug_print("%02i ", track);
+    } 
+    dh++;
+}
+debug_print("|\n");
+if(dh >= disksize)  return FAIL; 
+dh=dh+3;                            // skip over track header
+
+while(seek_sector != sector){
+    //step ahead to sector marker, sometime there are spurious chars to skip
+    for(i=0; i<=12; i++) if(disk[dh++] == 0x76) break; 
+    if(i ==12) return FAIL;             // we did not find the track header ... fail
+
+    sector=disk[dh++];
+    pages=disk[dh++];
+    debug_print(">>track=%i sector=%i pages=%i\n", track, sector,pages);
+    if(seek_sector != sector) {
+        dh=dh+256*pages;
     }
+}
+
+// ok... we have found the right track and right sector now load data
+for(i=0; i<pages*256; i++) {
+    buffer[i]=disk[dh+i];
+}
+debug_print(">>loaded  track=%i sector=%i pages=%i\n", track, sector, pages);
+
+return SUCCESS;
+}   // loadsector function
+
+
+// -----------------------------------------------------------
+// directory listing 
+//  2015/12/18 created
+void dir(uint8_t disk[], int disksize)
+{
+uint8_t sector_buf[256];        // directory sectors are one page long
+char name[8];
+int start, end;
+int empty=0;
+int i,j,t;
+
+
+printf("\nOS-65D VERSION 3.2\n");
+printf(" -- DIRECTORY --\n\n");
+printf("FILE NAME    TRACK RANGE\n");
+printf("------------------------\n");
+
+for(t=1; t<=2; t++) {
+    if(loadsector(disk,  disksize, sector_buf, DIRTRACK, t) == FAIL) {
+        fprintf(stderr, "%s: seek error. Cannot find track %i\n", program_name, DIRTRACK);
+        exit(1);
+    }
+    if(verbose) printhex(sector_buf, 0, 256);
+
+    for(i=0; i<256; i=i+8) {
+        if(sector_buf[i] == 0x23) {
+            empty++;
+        } else {
+            for(j=0; j<6; j++) 
+                name[j]=sector_buf[i+j];
+            name[6]= NULL_CHAR;
+            start=bcdtobin( sector_buf[i+6] );
+            end=bcdtobin(sector_buf[i+7]);
+            printf("%s\t\t%i - %i\n", name, start, end);
+        }
+    }
+}
+
+printf("\n%i ENTRIES FREE OUT OF 64\n\n", empty);
+
+}
