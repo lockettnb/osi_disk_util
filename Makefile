@@ -8,7 +8,7 @@ CC = gcc
 
 SRCS	= ddscan.c utils.c osiutils.c
 OBJS	= ddscan.o utils.o osiutils.o
-BINS	= dds
+BINS	= osidd
 HEAD	= 
 LIBS	= 
 
@@ -17,8 +17,8 @@ LIBS	=
 
 all: $(BINS)
 
-dds: ddscan.c ddscan.h $(OBJS) 
-	$(CC) -o dds $(CFLAGS) $(OBJS)
+osidd: ddscan.c ddscan.h $(OBJS) 
+	$(CC) -o osidd $(CFLAGS) $(OBJS)
 
 clean:
 	rm -rf $(BINS) $(OBJS)	

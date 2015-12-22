@@ -61,6 +61,27 @@ char *tail;
  printf("chomp length =%i\n ", strlen(s));
 }
 
+// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+void lower(char s[]) {
+int i;
+for(i=0; i==strlen(s); ++i){
+printf("%i", i);
+       s[i] = tolower(s[i]);
+}
+}
+
+// copy option argument value to dest string
+// ....with a bit of error  checking
+void get_optvalue(char *dest, char *optvalue) {
+
+    memset(dest, '\0', sizeof(dest));
+
+    if(optvalue==NULL) return;
+    if(strlen(optvalue) > sizeof(dest)) return;
+
+    strcpy(dest, optvalue);
+}
+
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // file size -- figure out the size of the file 
@@ -72,6 +93,13 @@ int fsize(const char *filename) {
         return st.st_size;
 
     return -1; 
+}
+
+// -----------------------------------------------------
+// convert byte from BCD to binary
+int bcdtobin(uint8_t bcd)
+{
+    return (bcd&0x0f) + ((bcd&0xf0)>>4)*10;
 }
 
 // *************************************************
@@ -118,82 +146,6 @@ int start, end;
     }
 
 }
-
-
-// *************************************************
-// load file into  buffer
-//  tests if it is a ascii or binary image file
-//
-//  2015/12/18 created
-//
-int load_file(FILE *fp, char *fname, uint8_t buffer[])
-{
-int filesize;                   // size of the file we are trying to load
-int loadsize;                   // number of byte we will actually load into memory
-int  c0, c1, c2;
-int  i;
-int byte_cnt=0;
-int  asciimode;
-
-    filesize = fsize(fname);
-    if (filesize == -1) {
-        fputs("Error: cannot reading file", stderr);
-        exit(1);
-    }
-
-    if (filesize == 0) {
-        fputs("Error: file is empty", stderr);
-        exit(1);
-    }
-    
-    if(filesize > MAX_FILE_SIZE) {
-        fputs("Error: file is too big", stderr);
-        exit(1);
-    }
-
-// track zero should alway start with loadhi=0x22 loadlow=0x00 page count=0x08
-// ... so load first 3 chars from file
-// if chars are string "22 " then this is ascii image
-// if chars are 0x22 0x00 0x08 then this is binary image
-    c0=fgetc(fp);
-    c1=fgetc(fp);
-    c2=fgetc(fp);
-    if(c0=='2' && c1=='2' && c2==' ') {
-         asciimode=TRUE;
-         buffer[byte_cnt++]= hexbin(c0, c1);
-    }
-    if(c0==0x22 && c1==0x00 && c2==0x08) {
-        asciimode=FALSE;
-        buffer[byte_cnt++]=c0;
-        buffer[byte_cnt++]=c1;
-        buffer[byte_cnt++]=c2;
-    }
-
-    if(asciimode) {
-        while((c0 = fgetc(fp)) != EOF) {
-            // skip over whitespace and if no hex digit (wtf??)
-            if(!isxdigit(c0) || isspace(c0)) continue;
-            // need to check we are not at EOF
-            c1=fgetc(fp);
-            if(!isxdigit(c1) || isspace(c1)) continue;
-            buffer[byte_cnt++] = hexbin(c0,c1); 
-        }
-        fclose (fp);
-    } else { // binary image
-        while((c0 = fgetc(fp)) != EOF) {
-            buffer[byte_cnt++] = c0; 
-        }
-        fclose (fp);
-    }
-
-    return byte_cnt;
-}
-
-// extra code
-//     while ( fgets ( line, sizeof line, fp ) != NULL ) {
-//         chomp(line);
-//         printf("<%s>\n",  line);
-//       }
 
 
 /* Print Usage Instructions */

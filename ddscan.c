@@ -13,6 +13,7 @@
 #include <getopt.h>
 #include <string.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "ddscan.h"
 
@@ -20,45 +21,75 @@
 char *program_name;
 
 
-// Option Flags set 
+// Option Flags
 int examine = FALSE;
 int directory = FALSE;
+int list=FALSE;
+int content=FALSE;
 int ascii   = TRUE;
 int binary  = FALSE;
 int verbose = FALSE;
 int help    = FALSE;
 int version = FALSE;
+int hello = FALSE;
+int debug = FALSE;
 
 struct option long_options[] =
      {
-       {"help",    no_argument, &help,    TRUE},
-       {"version", no_argument, &version, TRUE},
-       {"verbose", no_argument,       0, 'v'},
-       {"examine", no_argument,       0, 'x'},
-       {"ascii", no_argument,         0, 'a'},
-       {"binary", no_argument,        0, 'b'},
-       {"output", required_argument,  0, 'o'},
+       {"examine",  no_argument,        0, 'x'},
+       {"track",    required_argument,   0, 't'},
+       {"sector",   required_argument,   0, 's'},
+
+       {"directory", no_argument,       0, 'd'},
+       {"list",      no_argument,       0, 'l'},
+
+       {"output",   required_argument,  0, 'o'},
+       {"ascii",    no_argument,        0, 'a'},
+       {"binary",   no_argument,        0, 'b'},
+
+       {"content",  no_argument,        0, 'c'},
+       {"force",    required_argument,  0, 'f'},
+
+       {"verbose",  no_argument,        0, 'v'},
+       {"help",     no_argument, &help,    TRUE},
+       {"hello",     no_argument, &hello,   TRUE},
+       {"debug",     no_argument, &debug,   TRUE},
+       {"version",  no_argument, &version, TRUE},
        {NULL, 0, NULL, 0}
      };
 
 char *instructions[] = {
-    "  Disk Dump Scanner ",
+    "  osid - OSI Disk Dump",
     "    +scan OSI disk image for valid tracks/sector format",
     "    +convert disk image from ascii to binary",
-    "    +convert disk image from binary to ascii",
+    "    +display directory information",
+    "    +display content from tracks",
     " ",
-    " dds [options] FILE ",
+    " ",
+    " Usage dds [options] FILE ",
     "   -x   --examine      : examine all tracks for valid headers/sectors",
+    "   -t   --track  n     : track to examine (default=all tracks)",
+    "   -s   --sector n     : sector to examine (default=sector 1)",
+    " ",
     "   -d   --directory    : display directory listing from disk image",
-    "   -a   --ascii        : write disk image in ascii ",
+    "   -l   --list         : list track, sector, format information",
+    " ",
+    "   -o   --output fname : write image to output file",
+    "   -a   --ascii        : write disk image in ascii (default output format)",
     "   -b   --binary       : write disk image in binary ",
-    "   -o   --output fname : output file name",
+    " ",
+    "   -c   --content      : display content of track/sector ",
+    "   -f   --force type   : force display to basic, asm, text, hex or string",
+    " ",
     "   -v,  --verbose      : enable verbose output",
     "        --help         : display help and exit",
     "        --version      : print version information and exit",
     " ",
+    " When displaying content the application will guess the format type.",
+    " The format will be one of Basic, Assembler, Text or Data (hex).  ",
+    " This guess can be overridden by the force option.  Forcing string will",
+    " display all printable ascii chars found in the track/sector.",
     " ",
-    " With no FILE, or when FILE is -, read standard input",
     "                                                     john 2015/12",
     NULL_CHAR
     };
@@ -68,50 +99,85 @@ char *instructions[] = {
 // *****************************************************
 int main (int argc, char **argv)
 {
-int optc, option_index;
-FILE *infile;              // pointer to the input file stream
-char *outfile;
-int i = 0;                  // misc index
-int total_bytes;            // total number of bytes in disk image
-uint8_t disk[FULL_DISK];    // buffer for disk data
+int optc, option_index;     // option processing
+char in_track[MAXOPSIZE];   // track number from options (set default to all)
+char in_sector[MAXOPSIZE];  // sector number from options (set default to 1)
+char ofile[MAXOPSIZE];      // output file name from options
+char ftype[MAXOPSIZE];      // force type from options
+int track;                  // track to examine, set by option
+int sector;                 // sector to examine, set by option
+int ctype=GUESS;            // content type default it to guess
+
+
+int disksize;            // total number of bytes in disk image
+uint8_t disk[FULL_DISK]; // buffer for disk data
+
+struct  index_t index[77];
+
+struct dir_t dir[64];   
+
+// misc general variables
+FILE *fp;               // file name of input disk image
+int i = 0;              // misc index
+
 
 program_name=argv[0];
 if (help || version) inst(instructions,0);
-while ((optc=getopt_long(argc, argv, "xabo:dv", long_options, &option_index)) != -1)
-{
+
+while ((optc=getopt_long(argc, argv, "xt:s:dlo:abcf:dv", long_options, &option_index)) != -1) {
 switch (optc) {
     case 0:
-        /* If this option set a flag, do nothing else now. */
+        // getop returns zero for long options with no short values
+        // in our case help and verbose get set to TRUE so nothing else to do
         if (long_options[option_index].flag != 0) break;
-        /* Process other long options here */
-        /* option name     = long_options[option_index].name */
-        /* option argument = optarg */
-        /* In this case we don't have any, so quit with error */
+        // you could process other long options here 
+        // option name     = long_options[option_index].name
+        // option argument = optarg
+        fprintf(stderr, "wtf... unknown long option \n");
         inst(instructions, 1);
         break;
 
     case 'x':
         examine=TRUE;
-        puts ("option x\n");
         break;
 
-    case 'a':
-        ascii=TRUE;
-        puts ("option a\n");
+    case 't':
+        get_optvalue(in_track, optarg);
         break;
 
-    case 'b':
-        binary=TRUE;
-        puts ("option b\n");
-        break;
-
-    case 'o':
-        printf ("option -o with value `%s'\n", optarg);
-        outfile=optarg;
+    case 's':
+        get_optvalue(in_sector,optarg);
         break;
 
     case 'd':
         directory = TRUE;
+        break;
+
+    case 'l':
+        list = TRUE;
+        break;
+
+    case 'o':
+        printf ("option -o with value `%s'\n", optarg);
+        get_optvalue(ofile,optarg);
+        break;
+
+    case 'a':
+        ascii=TRUE;
+        binary=FALSE;
+        break;
+
+    case 'b':
+        binary=TRUE;
+        ascii=FALSE;
+        break;
+
+    case 'c':
+        content=TRUE;
+        break;
+
+    case 'f':
+        get_optvalue(ftype,optarg);
         break;
 
     case 'v':
@@ -125,29 +191,44 @@ switch (optc) {
 
     default:
         abort ();
-    }
+    } // switch options
 } // while options
-if (help || version) inst(instructions,0);
 
-if ((argc-optind) == 0) {                       // no arguments; process stdin
-    total_bytes=load_file(stdin, "stdin", disk);
+// post option processing
+if (help || version) inst(instructions,0);
+track = atoi(in_track);
+sector = atoi(in_sector);
+
+lower(ftype);
+if(strcmp(ftype, "basic") == 0) ctype = BAS;
+if(strcmp(ftype, "asm") == 0)   ctype = ASM;
+if(strcmp(ftype, "text") == 0)  ctype = TXT;
+if(strcmp(ftype, "hex") == 0)   ctype = HEX;
+if(strcmp(ftype, "string") == 0)ctype = STR;
+
+if ((argc-optind) == 0) {                       // no arguments
+    fprintf(stderr, "%s: No disk image file to process\n", program_name);
+    exit(1);
 }
-else {
-    if(strcmp("-", argv[optind]) == 0)          // process dash as stdin 
-        total_bytes=load_file(stdin, "stdin", disk);
-    else {                                      // open file 
-        if((infile=fopen(argv[optind], "r")) == NULL) {
-            fprintf(stderr, "%s: error opening file <%s>\n", \
-                    program_name, argv[optind]);
-            exit(FAIL);
-        }
-        total_bytes=load_file(infile, argv[optind], disk);     //process each file
+
+if((fp=fopen(argv[optind], "r")) == NULL) {
+    fprintf(stderr, "%s: error opening file <%s>\n", program_name, argv[optind]);
+    exit(FAIL);
+}
+
+disksize=load_disk_image(fp, argv[optind], disk, index, dir);     //process each file
+verbose_print("Disk Image Size = %i bytes (0x%06x)\n", disksize, disksize);
+
+if(examine) {
+    for(i=0; i<=76; i++) {
+        print_disk(disk, disksize, index, i);
     }
 }
 
-verbose_print("disk size = %i (0x%06x)\n", total_bytes, total_bytes);
-if(examine) scandisk(disk, total_bytes);
-if(directory) dir(disk, total_bytes);
+if(directory) getdir(disk, disksize);
+// if(list) getdir(disk, disksize);
+// if(content) getdir(disk, disksize);
+// if(ofile != NULL) getdir(disk, disksize);
 
 exit(SUCCESS);
 }   /* main */

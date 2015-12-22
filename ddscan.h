@@ -9,9 +9,11 @@
 #define FALSE 0
 #define SUCCESS 0
 #define FAIL -1
+#define MAXOPSIZE 32
 
 #define verbose_print(...)  do { if (verbose) printf(__VA_ARGS__ ); } while (0)
-#define debug_print(...)  do { if (verbose) printf(__VA_ARGS__ ); } while (0)
+#define debug_print(...)  do { if (debug) printf(__VA_ARGS__ ); } while (0)
+#define ddebug_print(...)  do { if (hello) printf(__VA_ARGS__ ); } while (0)
 
 
 // the disk image is ASCII chars in rows of 16 bytes
@@ -27,32 +29,56 @@
 #define DIRTRACK 8
 #define FULL_DISK TRACKS*TRACKSIZE
 
-/* Option Flags set by `--options' */
-extern int examine;
-extern int ascii;
-extern int binary;
+// content display formats
+#define GUESS 0
+#define BAS 1
+#define ASM 2
+#define TXT 3
+#define HEX 4
+#define STR 5 
+
+// Global Option Flags 
+// extern int examine;
+// extern int directory;
+// extern int list;
+// extern int ascii;
+// extern int binary;
+// extern int content;
 extern int verbose;
 extern int help;
 extern int version;
+extern int hello;
 extern int debug;
+// extern int debug;
 
 extern char *program_name;
-// extern char *instructions[];
 
-// print help and instructions
+struct index_t {   // 77 tracks 0..76
+    int start;     // start of track in disk buffer
+    int header;    // start of header, usually the same as start but not always
+    int sector[7]; // sector locations using 1,2,3,4,5,6 (0-zero is not used) 
+    int pages[7];  // sector page sizes
+    int end;       // end of track data, may be some filler bytes beyond end
+};
+
+struct dir_t {        // max 64 directory entries
+    char name[7];     // directory entry name 6 chars long
+    int  start;       // start track
+    int  end;         // end track
+};   
+
+// utility functions 
+char *trimwhite (char *string);
+void chomp(char *s);
+void lower(char s[]);
+void get_optvalue(char *dest, char *optvalue);
 void inst(char *iptr[], int status);
 
-// load the binary file into the memory buffer
-int load_file(FILE *fp, char *fname, uint8_t buffer[FULL_DISK]);
-
-// print buffer out as hex dump
+// utility -- print buffer out as hex dump
 void printhex(uint8_t b[], int addr, int count);
-
-// trimwhite space from front/back of a command line
-char *trimwhite (char *string);
-
-// remove control chars (cr/lf) from end of string
-void chomp(char *s);
+int bcdtobin(uint8_t bcd);
 
 // OSI Utilities
 void scandisk(uint8_t disk[], int disksize);
+int load_disk_image(FILE *fp, char *fname, uint8_t disk[], struct index_t index[], struct dir_t dir[]);
+void print_disk(uint8_t disk[], int disksize, struct index_t index[], int track);
