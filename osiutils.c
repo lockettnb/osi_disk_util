@@ -232,20 +232,31 @@ int loadadd0, pg0;
     else
         tksize=index[track+1].start-index[track].start;
 
-    printf("Track %i\n", track);
-    printf("  Start  Offset=0x%06x   0x%04x Bytes (%i)\n",\
-                  index[track].start, tksize, tksize);
+    printf("Track %i  Offset=%06x  Size=0x%04x bytes (%i)\n", \
+                  track, index[track].start, tksize, tksize);
 
-    if(track ==0) 
-        printf("  Header Offset=0x%06x\n  Load Address=0x%02x%02x      Pages=0x%i (%i)\n",\
-                 index[track].header, disk[0], disk[1], disk[2],disk[2]);
+    if(track ==0) {
+        printf("  Header 0x%06x              %02x %02x  %02x\n",\
+                 index[track].header, disk[0], disk[1], disk[2]);
+
+        printf("  Load Address=0x%02x%02x  %i Pages\n",\
+                 disk[0], disk[1], disk[2]);
+    }
     else
-        printf("  Header Offset=0x%06x\n", index[track].header);
+        printf("  Header : 0x%06x            %02x %02x\n",\
+                 index[track].header, disk[index[track].header], disk[index[track].header+1] );
 
     for(i=1; i<=4; i++) 
-        if(index[track].sector[i] != 0)
-           printf("  Sector %i: Offset=0x%06x Pages=0x%02x (%i)\n",\
-                     i, index[track].sector[i], index[track].pages[i], index[track].pages[i]);
+        if(index[track].sector[i] != 0) {
+           printf("  Sector%i: 0x%06x %2i Pages",\
+                     i, index[track].sector[i], index[track].pages[i]);
+           printf("   %02x %02x %02x....%02x %02x\n", \
+                   disk[index[track].sector[i]],\
+                   disk[index[track].sector[i]+1],\
+                   disk[index[track].sector[i]+2],\
+                   disk[index[track].sector[i]+(256*index[track].pages[i])+3],\
+                   disk[index[track].sector[i]+(256*index[track].pages[i])+4] );
+            }
 
     printf("\n");
 }
