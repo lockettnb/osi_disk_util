@@ -36,7 +36,7 @@ int debug = FALSE;
 
 struct option long_options[] =
      {
-       {"examine",  no_argument,        0, 'x'},
+       {"examine",  no_argument,        0, 'e'},
        {"track",    required_argument,   0, 't'},
        {"sector",   required_argument,   0, 's'},
 
@@ -124,7 +124,7 @@ int i = 0;              // misc index
 program_name=argv[0];
 if (help || version) inst(instructions,0);
 
-while ((optc=getopt_long(argc, argv, "xt:s:dlo:abcf:dv", long_options, &option_index)) != -1) {
+while ((optc=getopt_long(argc, argv, "et:s:dlo:abcf:dv", long_options, &option_index)) != -1) {
 switch (optc) {
     case 0:
         // getop returns zero for long options with no short values
@@ -137,7 +137,7 @@ switch (optc) {
         inst(instructions, 1);
         break;
 
-    case 'x':
+    case 'e':
         examine=TRUE;
         break;
 
@@ -196,7 +196,13 @@ switch (optc) {
 
 // post option processing
 if (help || version) inst(instructions,0);
-track = atoi(in_track);
+
+if (strcmp(in_track, "all") == 0)
+    track=99;
+else
+    track = atoi(in_track);
+if(track !=99 && track >76) track=0;
+
 sector = atoi(in_sector);
 
 lower(ftype);
@@ -216,16 +222,20 @@ if((fp=fopen(argv[optind], "r")) == NULL) {
     exit(FAIL);
 }
 
+// ok, finally done processing options and stuff load the disk image
 disksize=load_disk_image(fp, argv[optind], disk, index, dir);     //process each file
 verbose_print("Disk Image Size = %i bytes (0x%06x)\n", disksize, disksize);
 
-if(examine) {
-    for(i=0; i<=76; i++) {
+if(examine || content) {
+  if(track==99) 
+       for(i=0; i<=76; i++) {
         print_disk(disk, disksize, index, i);
-    }
+       }
+   else 
+    print_disk(disk,disksize, index, track);
 }
 
-if(directory) getdir(disk, disksize);
+if(directory) print_directory(disk, disksize, index);
 // if(list) getdir(disk, disksize);
 // if(content) getdir(disk, disksize);
 // if(ofile != NULL) getdir(disk, disksize);

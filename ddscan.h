@@ -21,7 +21,7 @@
 //  + 240 rows per sector
 //  + 77 tracks
 // .....row example 22 00 08 A9 01 20 B6 22 20 BC 26 A9 2A 85 FF 20
-#define MAX_FILE_SIZE ((16*3)+2)*240*77
+#define MAX_ASCII_SIZE ((16*3)+2)*240*77
 
 // 0-76 tracks or 16 pages 
 #define TRACKSIZE 4096
@@ -43,13 +43,12 @@
 // extern int list;
 // extern int ascii;
 // extern int binary;
-// extern int content;
+extern int content;
 extern int verbose;
 extern int help;
 extern int version;
 extern int hello;
 extern int debug;
-// extern int debug;
 
 extern char *program_name;
 
@@ -67,18 +66,3 @@ struct dir_t {        // max 64 directory entries
     int  end;         // end track
 };   
 
-// utility functions 
-char *trimwhite (char *string);
-void chomp(char *s);
-void lower(char s[]);
-void get_optvalue(char *dest, char *optvalue);
-void inst(char *iptr[], int status);
-
-// utility -- print buffer out as hex dump
-void printhex(uint8_t b[], int addr, int count);
-int bcdtobin(uint8_t bcd);
-
-// OSI Utilities
-void scandisk(uint8_t disk[], int disksize);
-int load_disk_image(FILE *fp, char *fname, uint8_t disk[], struct index_t index[], struct dir_t dir[]);
-void print_disk(uint8_t disk[], int disksize, struct index_t index[], int track);
