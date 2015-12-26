@@ -123,15 +123,20 @@ int hexbin(int hi, int low) {
 void printhex(uint8_t b[], int addr, int count) {
 int i, j;
 int start, end;
+int start_row, end_row;
 
-    start = addr & 0xfffffff0;
-    end = (addr+count) | 0x0000000f;
-// printf("address=%04x count=%04x\n", addr, count);
-// printf("start=%04x end=%04x\n", start, end);
-    for (i=start; i<=end; i=i+16) {
+    start=addr;
+    start_row = start & 0xfffffff0;
+    end=start+count-1;
+    end_row = end  & 0xfffffff0;
+
+// printf("addr=%04x count=%04x\n", addr, count);
+// printf("start %04x %04x end %04x %04x\n", start_row, start, end_row, end);
+
+    for (i=start_row; i<=end_row; i=i+16) {
         printf("%06x  ", i);
         for(j=0; j<16; j++) {
-            if((i+j>=addr) && (i+j<addr+count) && (i+j<end))
+            if( (i+j>=start) && (i+j<=end) )
                 printf("%02x ", b[i+j]); 
             else
                 printf(".. ");

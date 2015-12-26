@@ -158,7 +158,6 @@ switch (optc) {
         break;
 
     case 'o':
-        printf ("option -o with value `%s'\n", optarg);
         get_optvalue(ofile,optarg);
         break;
 
@@ -217,28 +216,24 @@ if ((argc-optind) == 0) {                       // no arguments
     exit(1);
 }
 
-if((fp=fopen(argv[optind], "r")) == NULL) {
-    fprintf(stderr, "%s: error opening file <%s>\n", program_name, argv[optind]);
-    exit(FAIL);
-}
-
 // ok, finally done processing options and stuff load the disk image
-disksize=load_disk_image(fp, argv[optind], disk, index, dir);     //process each file
-verbose_print("Disk Image Size = %i bytes (0x%06x)\n", disksize, disksize);
+disksize=load_disk_image(argv[optind], disk, index, dir);     //process each file
+verbose_print("Disk Image: %i bytes (0x%06x)\n\n", disksize, disksize);
 
-if(examine || content) {
+if(examine) {
   if(track==99) 
        for(i=0; i<=76; i++) {
-        print_disk(disk, disksize, index, i);
+        print_track(disk, disksize, index, i);
        }
    else 
-    print_disk(disk,disksize, index, track);
+    print_track(disk,disksize, index, track);
 }
 
 if(directory) print_directory(disk, disksize, index);
+if(content) show_track(disk, disksize, index, track );
+// if(ofile != NULL) write_image(disk, disksize, index, ofile);
+
 // if(list) getdir(disk, disksize);
-// if(content) getdir(disk, disksize);
-// if(ofile != NULL) getdir(disk, disksize);
 
 exit(SUCCESS);
 }   /* main */

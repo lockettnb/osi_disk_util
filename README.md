@@ -18,23 +18,31 @@ This utility is intended to help validate that disk images are
 correctly formated.  It can also be used to convert images
 from ascii to binary or vice vera.
 
-      Disk Dump Scanner 
-        +scan OSI disk image for valid tracks/sector format
-        +convert disk image from ascii to binary
-        +convert disk image from binary to ascii
-     
-     Usage:
-      dds [options] FILE 
+    Usage dds [options] FILE 
        -x   --examine      : examine all tracks for valid headers/sectors
-       -a   --ascii        : write disk image in ascii 
+       -t   --track  n     : track to examine (default=all tracks)
+       -s   --sector n     : sector to examine (default=sector 1)
+     
+       -d   --directory    : display directory listing from disk image
+       -l   --list         : list track, sector, format information
+     
+       -o   --output fname : write image to output file
+       -a   --ascii        : write disk image in ascii (default output format)
        -b   --binary       : write disk image in binary 
-       -o   --output fname : output file name
+     
+       -c   --content      : display content of track/sector 
+       -f   --force type   : force display to basic, asm, text, hex or string
+     
        -v,  --verbose      : enable verbose output
-       -d,  --debug        : display program debug information
             --help         : display help and exit
             --version      : print version information and exit
- 
+     
+     When displaying content the application will guess the format type.
+     The format will be one of Basic, Assembler, Text or Data (hex).  
+     This guess can be overridden by the force option.  Forcing string will
+     display all printable ascii chars found in the track/sector.
+
  
 john
-2015/12/18
+2015/12/26
 
