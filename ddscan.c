@@ -24,7 +24,6 @@ char *program_name;
 // Option Flags
 int examine = FALSE;
 int directory = FALSE;
-int list=FALSE;
 int content=FALSE;
 int ascii   = TRUE;
 int binary  = FALSE;
@@ -41,7 +40,6 @@ struct option long_options[] =
        {"sector",   required_argument,   0, 's'},
 
        {"directory", no_argument,       0, 'd'},
-       {"list",      no_argument,       0, 'l'},
 
        {"output",   required_argument,  0, 'o'},
        {"ascii",    no_argument,        0, 'a'},
@@ -68,15 +66,14 @@ char *instructions[] = {
     " ",
     " Usage dds [options] FILE ",
     "   -x   --examine      : examine all tracks for valid headers/sectors",
-    "   -t   --track  n     : track to examine (default=all tracks)",
+    "   -t   --track  n     : track to examine, can be a range 0-4 or all (default=all)",
     "   -s   --sector n     : sector to examine (default=sector 1)",
     " ",
     "   -d   --directory    : display directory listing from disk image",
-    "   -l   --list         : list track, sector, format information",
     " ",
     "   -o   --output fname : write image to output file",
-    "   -a   --ascii        : write disk image in ascii (default output format)",
-    "   -b   --binary       : write disk image in binary ",
+    "   -a   --ascii        : write disk image in ascii hex ",
+    "   -b   --binary       : write disk image in binary (default output format)",
     " ",
     "   -c   --content      : display content of track/sector ",
     "   -f   --force type   : force display to basic, asm, text, hex or string",
@@ -111,16 +108,21 @@ int ctype=GUESS;            // content type default it to guess
 
 int disksize;            // total number of bytes in disk image
 uint8_t disk[FULL_DISK]; // buffer for disk data
-
 struct  index_t index[77];
-
 struct dir_t dir[64];   
 
 // misc general variables
 FILE *fp;               // file name of input disk image
 int i = 0;              // misc index
 
+int from, to;          // tracks
+char xfrom[16];
+char xto[16];
+char *token;
+const char delm[2] = "-";
 
+strcpy(in_track, "all");    // default all tracks
+ofile[1]='\0';              // default write file is none
 program_name=argv[0];
 if (help || version) inst(instructions,0);
 
@@ -142,23 +144,19 @@ switch (optc) {
         break;
 
     case 't':
-        get_optvalue(in_track, optarg);
+        get_optvalue(in_track, optarg, MAXOPSIZE-1);
         break;
 
     case 's':
-        get_optvalue(in_sector,optarg);
+        get_optvalue(in_sector,optarg , MAXOPSIZE-1);
         break;
 
     case 'd':
         directory = TRUE;
         break;
 
-    case 'l':
-        list = TRUE;
-        break;
-
     case 'o':
-        get_optvalue(ofile,optarg);
+        get_optvalue(ofile,optarg, MAXOPSIZE-1);
         break;
 
     case 'a':
@@ -176,7 +174,7 @@ switch (optc) {
         break;
 
     case 'f':
-        get_optvalue(ftype,optarg);
+        get_optvalue(ftype,optarg, MAXOPSIZE-1);
         break;
 
     case 'v':
@@ -196,11 +194,29 @@ switch (optc) {
 // post option processing
 if (help || version) inst(instructions,0);
 
-if (strcmp(in_track, "all") == 0)
-    track=99;
-else
-    track = atoi(in_track);
-if(track !=99 && track >76) track=0;
+strcpy(xfrom, "0");
+strcpy(xto, "0");
+
+// figure out the from-to track numbers
+if ((strcmp(in_track, "all") ==0)) 
+    from=to=99;
+else {
+        token = strtok(in_track, delm);
+        if(token != NULL) strcpy(xfrom, token);
+        else strcpy(xfrom, "1");
+
+        token = strtok(NULL, delm);
+        if(token != NULL) strcpy(xto, token);
+        else strcpy(xto, "0");
+
+        from = atoi(xfrom);
+        to = atoi(xto);
+        // debug_print(">>Tracks: xfrom=%s xto=%s\n", xfrom, xto);
+        if(from >76) from=76;
+        if(to >76) to=76;
+        if(from > to) to=from;
+    }
+debug_print(">>Tracks: from=%i to=%i\n", from, to);
 
 sector = atoi(in_sector);
 
@@ -221,19 +237,33 @@ disksize=load_disk_image(argv[optind], disk, index, dir);     //process each fil
 verbose_print("Disk Image: %i bytes (0x%06x)\n\n", disksize, disksize);
 
 if(examine) {
-  if(track==99) 
+  if(to==99) 
        for(i=0; i<=76; i++) {
         print_track(disk, disksize, index, i);
        }
-   else 
-    print_track(disk,disksize, index, track);
+   else {
+        for(i=from; i<=to; i++) {
+            print_track(disk,disksize, index, i);
+        }
+    }
+}
+
+if(content) {
+  if(to==99) 
+       for(i=0; i<=76; i++) {
+        show_track(disk, disksize, index, i);
+       }
+   else {
+        for(i=from; i<=to; i++) {
+            show_track(disk,disksize, index, i);
+        }
+    }
 }
 
 if(directory) print_directory(disk, disksize, index);
-if(content) show_track(disk, disksize, index, track );
-// if(ofile != NULL) write_image(disk, disksize, index, ofile);
+if( (ofile[1] != '\0') && ascii ) write_ascii_image(disk, disksize, index, ofile);
+if( (ofile[1] != '\0') && binary ) write_binary_image(disk, disksize, index, ofile);
 
-// if(list) getdir(disk, disksize);
 
 exit(SUCCESS);
 }   /* main */

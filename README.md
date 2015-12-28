@@ -8,23 +8,23 @@ which has three CPUs (6502, 6800, Z80) and a whopping 48k of
 memory.
 
 In the process of reviving the old system I realized some of the
-old 8 inch floppies were getting a bit flacky.  Time to get images
+old 8 inch floppies were getting a bit wobbly.  Time to get images
 of these old diskettes before they are lost forever.
 
-I used a C3dump utility to  copy the raw disk data to a linux 
-server but I wondered if these were valid images.
+I used a C3dump utility to  copy the raw disk data to the serial
+port and caputured them on to a linux server. 
+But I wondered if these were valid images.
 
 This utility is intended to help validate that disk images are
 correctly formated.  It can also be used to convert images
 from ascii to binary or vice vera.
 
-    Usage dds [options] FILE 
+    Usage osidd [options] FILE 
        -x   --examine      : examine all tracks for valid headers/sectors
        -t   --track  n     : track to examine (default=all tracks)
        -s   --sector n     : sector to examine (default=sector 1)
      
        -d   --directory    : display directory listing from disk image
-       -l   --list         : list track, sector, format information
      
        -o   --output fname : write image to output file
        -a   --ascii        : write disk image in ascii (default output format)

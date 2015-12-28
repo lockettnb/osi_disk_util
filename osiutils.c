@@ -13,40 +13,139 @@
 #include "ddscan.h"
 
 //-------------------------------------------------------------------
-void write_image(uint8_t disk[], int disksize, struct index_t index[], char *fname) {
+// print hex ascii byte to file in rows of 16 bytes
+//
+void fprinthex(FILE *fp, uint8_t byte, int *count) {
+
+    if((*count % 16) == 0) {
+        fprintf(fp, "%02x", byte);
+        (*count)++;
+        return;
+    }
+
+    if((*count+1) % 16 == 0) {
+       fprintf(fp, " %02x\n", byte);
+       (*count)++;
+       return; 
+    }
+
+   fprintf(fp, " %02x", byte);
+   (*count)++;
+}
+
+//-------------------------------------------------------------------
+void write_ascii_image(uint8_t disk[], int disksize, struct index_t index[], char *fname) {
 FILE *fp;
 int tk, tksize;
-int tkcnt;                   // count of byte written to track
-int i;
-const int tkmax=15*256-1;   // every track will be 15 pages long, null padded to fit
+int tkcnt=0;                   // count of byte written to track
+int i, s, ss, se;
+const int tkmax=15*256;   // every track will be 15 pages long, null padded to fit
 
     if((fp=fopen(fname, "w")) == NULL) {
         fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);
         exit(FAIL);
     }
 
-    tksize=index[1].start-index[0].start;
-    for(i=0; i<=tksize; i++) {
-        printf("%02x ", disk[i]);
-        tkcnt++;
+    // TRACK ZERO
+    // write header
+    fprinthex(fp, disk[0], &tkcnt);
+    fprinthex(fp,  disk[1], &tkcnt);
+    fprinthex(fp,  disk[2], &tkcnt);
+    ss=3;
+    se=ss+disk[2]*256-1;
+
+    for(i=ss; i<=se; i++) {      // write track zero data
+        fprinthex(fp, disk[i], &tkcnt);
+        if(tkcnt >= tkmax) {
+            debug_print(">>write_image: track over 15 pages\n");
+            break;
+        }
     }
-    while(tkcnt <= tkmax) { // pad with null upto 15 pages
-        printf("%02x ", 0);
-        tkcnt++;
+    while(tkcnt < tkmax) {         // pad with NOP upto 15 pages
+        fprinthex(fp, 0xea, &tkcnt);
     }
 
-    for(tk=1; tk<=8; tk++) {
+    for(tk=1; tk<=76; tk++) {
+        tkcnt=0;
         // write track header
+        fprintf(fp, "\n");          // blank line between tracks
         for(i=index[tk].header; i<=index[tk].header+3; i++) {
-            tkcnt++;
-            printf("%02x ", disk[i]); 
+            fprinthex(fp, disk[i], &tkcnt);
         }
         // write each sector
         for(i=1; i<=6; i++) {
             if(index[tk].sector[i] !=0) {
-                printf("\n sector %i \n", i);
-                printf("page size %i\n ", index[tk].pages[i]*256);
+                ss=index[tk].sector[i];
+                se=ss+index[tk].pages[i]*256-1+3+2;
+                for(s=ss; s<=se; s++) {
+                    fprinthex(fp, disk[s], &tkcnt);
+                }
             }
+        }
+        while(tkcnt < tkmax) {         // pad with NOP upto 15 pages
+            fprinthex(fp, 0xea, &tkcnt);
+        }
+    }
+
+} // write hex image
+
+
+//-------------------------------------------------------------------
+void write_binary_image(uint8_t disk[], int disksize, struct index_t index[], char *fname) {
+FILE *fp;
+int tk, tksize;
+int tkcnt=0;                   // count of byte written to track
+int i, s, ss, se;
+const int tkmax=15*256;   // every track will be 15 pages long, null padded to fit
+
+    if((fp=fopen(fname, "w")) == NULL) {
+        fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);
+        exit(FAIL);
+    }
+
+    // track zero
+//     tksize=index[1].start-index[0].start;
+    // write header
+    fputc(disk[0], fp); tkcnt++;
+    fputc(disk[1], fp); tkcnt++;
+    fputc(disk[2], fp); tkcnt++;
+    ss=3;
+    se=ss+disk[2]*256-1;
+
+    for(i=ss; i<=se; i++) {      // write track zero data
+        fputc(disk[i], fp);
+        tkcnt++;
+        if(tkcnt >= tkmax) {
+            debug_print(">> write_image: track over 15 pages\n");
+            break;
+        }
+    }
+    while(tkcnt < tkmax) {         // pad with null upto 15 pages
+        fputc(0xea, fp);
+        tkcnt++;
+    }
+
+    for(tk=1; tk<=76; tk++) {
+        tkcnt=0;
+        // write track header
+        for(i=index[tk].header; i<=index[tk].header+3; i++) {
+            fputc(disk[i], fp); 
+            tkcnt++;
+        }
+        // write each sector
+        for(i=1; i<=6; i++) {
+            if(index[tk].sector[i] !=0) {
+                ss=index[tk].sector[i];
+                se=ss+index[tk].pages[i]*256-1+3+2;
+                for(s=ss; s<=se; s++) {
+                    fputc(disk[s], fp);
+                    tkcnt++;
+                }
+            }
+        }
+        while(tkcnt < tkmax) {         // pad with null upto 15 pages
+            fputc(0xea, fp);
+            tkcnt++;
         }
     }
 
@@ -56,6 +155,7 @@ const int tkmax=15*256-1;   // every track will be 15 pages long, null padded to
 //-------------------------------------------------------------------
 void show_track(uint8_t disk[], int disksize, struct index_t index[], int track) {
 int i;
+int content_found=FALSE;
 int tk;
 int sect;
 int pages;
@@ -65,15 +165,19 @@ uint8_t sector_buf[256*15];     // OS65D is max 12 pages
     for(i=1; i<=6; i++) { 
        sect=index[track].sector[i];
         pages=index[track].pages[i];
+        debug_print(">>show track seeking: t %i sector %i\n", track, i);
        if(sect != 0) {
-           printf("Track%i:  Sector%i: Pages: 0x%02x (%2i)\n", track, i , pages, pages); 
+           printf("\nTrack%i:  Sector%i: Pages: 0x%02x (%i)\n", track, i , pages, pages); 
             loadsector(disk, disksize, index, sector_buf, track, i);
             printhex(sector_buf, 0, pages*256);
-
-            }
+            content_found=TRUE;
+        }
 
     }
-    printf("\n");
+    if(content_found) 
+        printf("\n");
+    else
+        printf("\nTrack %i: empty\n", track);
 
 }
 
@@ -322,7 +426,7 @@ uint8_t sector_buf[256*15];     // OS65D is max 12 pages
         if(index[track].sector[i] != 0) {
             if(verbose) {
                 loadsector(disk, disksize, index, sector_buf, track, i);
-                printf("\nSector %2i Data \n", i);
+                printf("\n  Data: Sector %i\n", i);
                 printhex(sector_buf, 0, 64);
             }
     }
@@ -393,16 +497,16 @@ if( index[seek_track].sector[seek_sector] == 0) {
     exit(1);
 }
 
-debug_print(">>loading track=%i sector=%i\n", seek_track, seek_sector);
 // point the disk head to first byte of data (after the sector header)
 dh = index[seek_track].sector[seek_sector]+3;
 pages=index[seek_track].pages[seek_sector];
+debug_print(">>loadsector: loading track=%i sector=%i offset:0x%06x pages:%i\n",\
+             seek_track, seek_sector, dh, pages);
 
 // ok... we have found the right track and right sector now load data
 for(i=0; i<pages*256; i++) {
     buffer[i]=disk[dh+i];
 }
-debug_print(">>loaded  track=%i sector=%i pages=%i\n", track, sector, pages);
 
 return SUCCESS;
 }   // loadsector function

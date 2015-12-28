@@ -72,13 +72,12 @@ printf("%i", i);
 
 // copy option argument value to dest string
 // ....with a bit of error  checking
-void get_optvalue(char *dest, char *optvalue) {
+void get_optvalue(char *dest, char *optvalue, int max) {
 
-    memset(dest, '\0', sizeof(dest));
+    memset(dest, '\0', sizeof(MAXOPSIZE));
 
     if(optvalue==NULL) return;
-    if(strlen(optvalue) > sizeof(dest)) return;
-
+    if(strlen(optvalue) > max)  return;
     strcpy(dest, optvalue);
 }
 
