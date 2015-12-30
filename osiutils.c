@@ -15,7 +15,13 @@
 //-------------------------------------------------------------------
 // print hex ascii byte to file in rows of 16 bytes
 //
-void fprinthex(FILE *fp, uint8_t byte, int *count) {
+void cout(FILE *fp, uint8_t byte, int *count) {
+
+    if(binary) {
+        fputc(byte, fp);
+        (*count)++;
+        return;
+    }
 
     if((*count % 16) == 0) {
         fprintf(fp, "%02x", byte);
@@ -34,7 +40,7 @@ void fprinthex(FILE *fp, uint8_t byte, int *count) {
 }
 
 //-------------------------------------------------------------------
-void write_ascii_image(uint8_t disk[], int disksize, struct index_t index[], char *fname) {
+void write_image(uint8_t disk[], int disksize, struct index_t index[], char *fname) {
 FILE *fp;
 int tk, tksize;
 int tkcnt=0;                   // count of byte written to track
@@ -48,29 +54,29 @@ const int tkmax=15*256;   // every track will be 15 pages long, null padded to f
 
     // TRACK ZERO
     // write header
-    fprinthex(fp, disk[0], &tkcnt);
-    fprinthex(fp,  disk[1], &tkcnt);
-    fprinthex(fp,  disk[2], &tkcnt);
+    cout(fp, disk[0], &tkcnt);
+    cout(fp,  disk[1], &tkcnt);
+    cout(fp,  disk[2], &tkcnt);
     ss=3;
     se=ss+disk[2]*256-1;
 
     for(i=ss; i<=se; i++) {      // write track zero data
-        fprinthex(fp, disk[i], &tkcnt);
+        cout(fp, disk[i], &tkcnt);
         if(tkcnt >= tkmax) {
             debug_print(">>write_image: track over 15 pages\n");
             break;
         }
     }
     while(tkcnt < tkmax) {         // pad with NOP upto 15 pages
-        fprinthex(fp, 0xea, &tkcnt);
+        cout(fp, 0xea, &tkcnt);
     }
 
     for(tk=1; tk<=76; tk++) {
         tkcnt=0;
         // write track header
-        fprintf(fp, "\n");          // blank line between tracks
+        if(ascii) fprintf(fp, "\n");          // blank line between tracks
         for(i=index[tk].header; i<=index[tk].header+3; i++) {
-            fprinthex(fp, disk[i], &tkcnt);
+            cout(fp, disk[i], &tkcnt);
         }
         // write each sector
         for(i=1; i<=6; i++) {
@@ -78,79 +84,35 @@ const int tkmax=15*256;   // every track will be 15 pages long, null padded to f
                 ss=index[tk].sector[i];
                 se=ss+index[tk].pages[i]*256-1+3+2;
                 for(s=ss; s<=se; s++) {
-                    fprinthex(fp, disk[s], &tkcnt);
+                    cout(fp, disk[s], &tkcnt);
                 }
             }
         }
         while(tkcnt < tkmax) {         // pad with NOP upto 15 pages
-            fprinthex(fp, 0xea, &tkcnt);
+            cout(fp, 0xea, &tkcnt);
         }
     }
 
-} // write hex image
+} // write image
 
+void get_content_type(uint8_t disk[], int disksize, struct index_t index[], int track, int sector, char *type) {
 
-//-------------------------------------------------------------------
-void write_binary_image(uint8_t disk[], int disksize, struct index_t index[], char *fname) {
-FILE *fp;
-int tk, tksize;
-int tkcnt=0;                   // count of byte written to track
-int i, s, ss, se;
-const int tkmax=15*256;   // every track will be 15 pages long, null padded to fit
-
-    if((fp=fopen(fname, "w")) == NULL) {
-        fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);
-        exit(FAIL);
+    strcpy(type , "Unknown");
+    if(isbasic(disk, disksize, index, track, sector)==SUCCESS) {
+        strcpy(type, "BASIC");
+        return;
     }
 
-    // track zero
-//     tksize=index[1].start-index[0].start;
-    // write header
-    fputc(disk[0], fp); tkcnt++;
-    fputc(disk[1], fp); tkcnt++;
-    fputc(disk[2], fp); tkcnt++;
-    ss=3;
-    se=ss+disk[2]*256-1;
-
-    for(i=ss; i<=se; i++) {      // write track zero data
-        fputc(disk[i], fp);
-        tkcnt++;
-        if(tkcnt >= tkmax) {
-            debug_print(">> write_image: track over 15 pages\n");
-            break;
+    if(isasm(disk, disksize, index, track, sector)==SUCCESS) {
+            strcpy(type, "ASSEMBLER");
+            return;
         }
+
+    if(ismachine(disk, disksize, index, track, sector)==SUCCESS) {
+        strcpy(type, "MACHINE CODE");
+        return;
     }
-    while(tkcnt < tkmax) {         // pad with null upto 15 pages
-        fputc(0xea, fp);
-        tkcnt++;
-    }
-
-    for(tk=1; tk<=76; tk++) {
-        tkcnt=0;
-        // write track header
-        for(i=index[tk].header; i<=index[tk].header+3; i++) {
-            fputc(disk[i], fp); 
-            tkcnt++;
-        }
-        // write each sector
-        for(i=1; i<=6; i++) {
-            if(index[tk].sector[i] !=0) {
-                ss=index[tk].sector[i];
-                se=ss+index[tk].pages[i]*256-1+3+2;
-                for(s=ss; s<=se; s++) {
-                    fputc(disk[s], fp);
-                    tkcnt++;
-                }
-            }
-        }
-        while(tkcnt < tkmax) {         // pad with null upto 15 pages
-            fputc(0xea, fp);
-            tkcnt++;
-        }
-    }
-
-} // write_image
-
+}
 
 //-------------------------------------------------------------------
 void show_track(uint8_t disk[], int disksize, struct index_t index[], int track) {
@@ -159,25 +121,34 @@ int content_found=FALSE;
 int tk;
 int sect;
 int pages;
+char ctype[32];
 uint8_t sector_buf[256*15];     // OS65D is max 12 pages
 
-
+    if(track ==0) {
+        printf("\nTrack %i:\n", track);
+        printhex(disk, index[track].header, 8*256);
+        return;
+    }
+        
     for(i=1; i<=6; i++) { 
        sect=index[track].sector[i];
-        pages=index[track].pages[i];
-        debug_print(">>show track seeking: t %i sector %i\n", track, i);
+       pages=index[track].pages[i];
+       debug_print(">>show track seeking: t %i sector %i\n", track, i);
        if(sect != 0) {
-           printf("\nTrack%i:  Sector%i: Pages: 0x%02x (%i)\n", track, i , pages, pages); 
-            loadsector(disk, disksize, index, sector_buf, track, i);
-            printhex(sector_buf, 0, pages*256);
-            content_found=TRUE;
+           get_content_type(disk, disksize, index, track, i, ctype);
+           printf("\nTrack%i:  Sector%i: Pages: 0x%02x (%i)  %s\n", track, i , pages, pages, ctype); 
+           loadsector(disk, disksize, index, sector_buf, track, i);
+           printhex(sector_buf, 0, pages*256);
+           content_found=TRUE;
         }
 
     }
     if(content_found) 
         printf("\n");
-    else
+    else {
         printf("\nTrack %i: empty\n", track);
+        printhex(disk, index[track].header, 64);
+    }
 
 }
 
@@ -276,13 +247,13 @@ int tk;
 //     printf("dh=%06x c0=%02x c1=%02x\n", dh, c0,c1);
             if(c0=='\n' && c1=='\n') {      // blank line is end of the track
                 index[++track].start=dh;  // next byte is start of next track
-//                 ddebug_print(">>asciimode track %i at %06x\n", track, index[track].start);
+//                 ddebug_print("***asciimode track %i at %06x\n", track, index[track].start);
                 c0=c1;
                 continue;
             }
             if(isxdigit(c0) && isxdigit(c1)) {  // both hex digits, we have a byte
                 disk[dh++] = hexbin(c0,c1); 
-//                  ddebug_print(">>asciimode byte %02x at %06x\n", disk[dh-1], dh-1);
+//                  ddebug_print("***asciimode byte %02x at %06x\n", disk[dh-1], dh-1);
                 c0 = fgetc(fp);
                 continue;
             }
@@ -320,7 +291,7 @@ for(tk=1; tk<77; tk++) {
                  program_name, tk);
         return FAIL; 
     }
-    ddebug_print(">>track %i found at offset %06x\n", tk, dh);
+    ddebug_print("***load image: track %i found at offset %06x\n", tk, dh);
 
     // we are at the start of the track header
     if(!asciimode) index[tk].start=dh;  // for binary images only
@@ -338,33 +309,33 @@ for(tk=1; tk<77; tk++) {
         //step ahead to sector marker, sometime there are spurious chars to skip
         for(i=0; i<=12; i++) {
             if(disk[dh+i] == 0x76) break; 
-            ddebug_print(">>%i stepping for header sector %i ...offset=%06x data=%02x\n",\
+            ddebug_print("***load image: %i stepping for header sector %i ...offset=%06x data=%02x\n",\
                              i, sector, dh+i, disk[dh+i]);
         }
         if(i>=12) {
-        ddebug_print(">>%i failed while seeking sector ...offset=%06x\n", i, dh+i);
+        ddebug_print("***load image: %i finished, no sector at offset=%06x\n", i, dh+i);
             sector=99;
             continue;             // we did not find the sector, we are done
         }
 
         dh=dh+i;
-        ddebug_print(">>%i finished seeking sector %i ...offset=%06x byte=%02x\n",\
+        ddebug_print("***load image: %i finished seeking sector %i ...offset=%06x byte=%02x\n",\
                          i, sector, dh, disk[dh]);
 
         if(sector==disk[dh+1]) {
             index[tk].sector[sector]=dh;
             index[tk].pages[sector]=disk[dh+2];
-            ddebug_print(">>recording track=%i sector=%i offset=%06x pages=%i\n", \
+            ddebug_print("**load image: *recording track=%i sector=%i offset=%06x pages=%i\n", \
                          tk, sector, index[tk].sector[sector], index[tk].pages[sector]);
             // data section, we skip over it
             dh=dh+3;           // move to first byte of data
-            ddebug_print(">>data section starts at %06x byte=%02x\n", dh, disk[dh]);
+            ddebug_print("**load image: *data section starts at %06x byte=%02x\n", dh, disk[dh]);
             dh=dh+(256*index[tk].pages[sector])-1;
-            ddebug_print(">>data section ends at %06x byte=%02x\n", dh, disk[dh]);
+            ddebug_print("**load image: *data section ends at %06x byte=%02x\n", dh, disk[dh]);
             dh++;           // move to sector end marker "0x43 0x57"
-            ddebug_print(">>sector end marker at %06x=%02x %02x\n", dh, disk[dh], disk[dh+1]);
+            ddebug_print("**load image: *sector end marker at %06x=%02x %02x\n", dh, disk[dh], disk[dh+1]);
             sector++;
-            ddebug_print(">>looking for next track=%i sector=%i offset=%06x\n", \
+            ddebug_print("**load image: *looking for next track=%i sector=%i offset=%06x\n", \
                          tk, sector, dh);
         } else {
            debug_print("%s: Error, sector format error track=%i sector=%i disk offset = %06x\n",\
@@ -385,7 +356,8 @@ int tk;
 int tksize;
 int loadadd0, pg0;
 uint8_t sector_buf[256*15];     // OS65D is max 12 pages
-
+int no_sectors=TRUE;
+char ctype[32];
 
     if(track==76) 
         tksize=disksize-index[track].start;
@@ -412,14 +384,17 @@ uint8_t sector_buf[256*15];     // OS65D is max 12 pages
 
     for(i=1; i<=6; i++) 
         if(index[track].sector[i] != 0) {
+           no_sectors=FALSE;
+            get_content_type(disk, disksize, index, track, i, ctype);
+
            printf("  Sector%i: 0x%06x Pages:%2i",\
                      i, index[track].sector[i],  index[track].pages[i]);
-           printf("   %02x %02x %02x....%02x %02x\n", \
+           printf("   %02x %02x %02x....%02x %02x - %s\n", \
                    disk[index[track].sector[i]],\
                    disk[index[track].sector[i]+1],\
                    disk[index[track].sector[i]+2],\
                    disk[index[track].sector[i]+(256*index[track].pages[i])+3],\
-                   disk[index[track].sector[i]+(256*index[track].pages[i])+4] );
+                   disk[index[track].sector[i]+(256*index[track].pages[i])+4], ctype);
             }
 
     for(i=1; i<=6; i++) 
@@ -431,6 +406,11 @@ uint8_t sector_buf[256*15];     // OS65D is max 12 pages
             }
     }
     printf("\n");
+    if(no_sectors && verbose) {
+        printf("  Data: no sectors, data at start of track\n");
+        printhex(disk, index[track].header, 64);
+        printf("\n");
+    }
 
 }
 
@@ -493,7 +473,7 @@ int i;
     debug_print(">>loadsector: seeking track=%i sector=%i\n", seek_track, seek_sector);
 
 if( index[seek_track].sector[seek_sector] == 0) {
-    fprintf(stderr, "%s:trying to load non-existing track/sector=$i/$i\n", program_name, seek_track, seek_sector);
+    fprintf(stderr, "%s:trying to load non-existing track/sector=%i/%i\n", program_name, seek_track, seek_sector);
     exit(1);
 }
 
@@ -519,7 +499,7 @@ int seek_track(uint8_t disk[], int disksize, int seek_tk) {
 int dh;
 int tk=0;
 
-    ddebug_print(">>seeking track %02i\n", seek_tk);
+    ddebug_print("***seek track: seeking track %02i\n", seek_tk);
     if(seek_tk == 0 ) return 0;
      
     dh=8*256;
@@ -528,6 +508,7 @@ int tk=0;
             if(disk[dh]==0x43 && disk[dh+1]==0x57 && disk[dh+3]==0x58) {
                 // convert BCD track number to binary
                 tk=bcdtobin(disk[dh+2]);
+                if((tk % 16) == 0) ddebug_print("\n");
                 ddebug_print("t%02i ", tk);
             } 
             dh++;
@@ -537,7 +518,7 @@ int tk=0;
             }
         }
 
-    ddebug_print("\n>>seek finished track %02i offset=%06x\n", tk, dh-1);
+    ddebug_print("\n>>seek track: seek finished track %02i offset=%06x\n", tk, dh-1);
     return dh-1;
 } // seek_track
 
@@ -559,10 +540,10 @@ int i;
         if(isxdigit(c0)) hex_cnt++;
         if(iscntrl(c0)) binary_cnt++;
     }
-    ddebug_print("checking ascii format: hex=%i control=%i\n", hex_cnt, binary_cnt); 
+    ddebug_print("***checking ascii format: hex=%i control=%i\n", hex_cnt, binary_cnt); 
     if(hex_cnt>=44 && binary_cnt==0) {
         *asciiformat = TRUE;
-        debug_print(">>this is an ascii format image file\n");
+        debug_print(">>image format: input file is an ascii format image file\n");
         fseek(fp, 0L, SEEK_SET);
         return SUCCESS;
     }
@@ -575,14 +556,14 @@ int i;
         if(iscntrl(c0)) binary_cnt++;       // count control chars
         // if(isxdigit(c0)) hex_cnt++;
     }
-    ddebug_print("checking for binary format: control=%i\n", binary_cnt); 
+    ddebug_print("***image format: checking for binary format: control=%i\n", binary_cnt); 
     if(binary_cnt == 0) {
-        debug_print(">>this is NOT a binary format image file\n");
+        debug_print(">>image format: input file is NOT a binary format image file\n");
         fseek(fp, 0L, SEEK_SET);
         return FAIL;
     }
 
-    debug_print(">>this is a binary format image file\n");
+    debug_print(">>image format: input file is a binary format image file\n");
     *asciiformat = FALSE;
     fseek(fp, 0L, SEEK_SET);
     return SUCCESS;

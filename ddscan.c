@@ -25,8 +25,8 @@ char *program_name;
 int examine = FALSE;
 int directory = FALSE;
 int content=FALSE;
-int ascii   = TRUE;
-int binary  = FALSE;
+int ascii   = FALSE;
+int binary  = TRUE;
 int verbose = FALSE;
 int help    = FALSE;
 int version = FALSE;
@@ -57,15 +57,15 @@ struct option long_options[] =
      };
 
 char *instructions[] = {
-    "  osid - OSI Disk Dump",
+    "  osidd - OSI Disk Dump",
     "    +scan OSI disk image for valid tracks/sector format",
     "    +convert disk image from ascii to binary",
     "    +display directory information",
     "    +display content from tracks",
     " ",
     " ",
-    " Usage dds [options] FILE ",
-    "   -x   --examine      : examine all tracks for valid headers/sectors",
+    " Usage osidd [options] FILE ",
+    "   -e   --examine      : examine all tracks for valid headers/sectors",
     "   -t   --track  n     : track to examine, can be a range 0-4 or all (default=all)",
     "   -s   --sector n     : sector to examine (default=sector 1)",
     " ",
@@ -76,7 +76,8 @@ char *instructions[] = {
     "   -b   --binary       : write disk image in binary (default output format)",
     " ",
     "   -c   --content      : display content of track/sector ",
-    "   -f   --force type   : force display to basic, asm, text, hex or string",
+    "   -f   --force type   : force display to basic, asm, text, or hex",
+
     " ",
     "   -v,  --verbose      : enable verbose output",
     "        --help         : display help and exit",
@@ -84,8 +85,7 @@ char *instructions[] = {
     " ",
     " When displaying content the application will guess the format type.",
     " The format will be one of Basic, Assembler, Text or Data (hex).  ",
-    " This guess can be overridden by the force option.  Forcing string will",
-    " display all printable ascii chars found in the track/sector.",
+    " This guess can be overridden by the force option.",
     " ",
     "                                                     john 2015/12",
     NULL_CHAR
@@ -103,7 +103,7 @@ char ofile[MAXOPSIZE];      // output file name from options
 char ftype[MAXOPSIZE];      // force type from options
 int track;                  // track to examine, set by option
 int sector;                 // sector to examine, set by option
-int ctype=GUESS;            // content type default it to guess
+int ctype=HEX;              // content type default it to data(hex) 
 
 
 int disksize;            // total number of bytes in disk image
@@ -225,7 +225,6 @@ if(strcmp(ftype, "basic") == 0) ctype = BAS;
 if(strcmp(ftype, "asm") == 0)   ctype = ASM;
 if(strcmp(ftype, "text") == 0)  ctype = TXT;
 if(strcmp(ftype, "hex") == 0)   ctype = HEX;
-if(strcmp(ftype, "string") == 0)ctype = STR;
 
 if ((argc-optind) == 0) {                       // no arguments
     fprintf(stderr, "%s: No disk image file to process\n", program_name);
@@ -251,18 +250,19 @@ if(examine) {
 if(content) {
   if(to==99) 
        for(i=0; i<=76; i++) {
-        show_track(disk, disksize, index, i);
+        if(ctype == HEX) show_track(disk, disksize, index, i);
+        if(ctype == BAS) basic_print(disk, disksize, index, i);
        }
    else {
         for(i=from; i<=to; i++) {
-            show_track(disk,disksize, index, i);
+            if(ctype == HEX) show_track(disk,disksize, index, i);
+            if(ctype == BAS) basic_print(disk, disksize, index, i);
         }
     }
 }
 
 if(directory) print_directory(disk, disksize, index);
-if( (ofile[1] != '\0') && ascii ) write_ascii_image(disk, disksize, index, ofile);
-if( (ofile[1] != '\0') && binary ) write_binary_image(disk, disksize, index, ofile);
+if( (ofile[1] != '\0')) write_image(disk, disksize, index, ofile);
 
 
 exit(SUCCESS);

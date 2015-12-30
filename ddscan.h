@@ -3,7 +3,7 @@
 *   2015/12/17 created
 */
 
-#define VERSION "0.01"
+#define VERSION "0.1"
 #define NULL_CHAR '\0'
 #define TRUE 1
 #define FALSE 0
@@ -30,19 +30,17 @@
 #define FULL_DISK TRACKS*TRACKSIZE
 
 // content display formats
-#define GUESS 0
 #define BAS 1
 #define ASM 2
 #define TXT 3
 #define HEX 4
-#define STR 5 
 
 // Global Option Flags 
 // extern int examine;
 // extern int directory;
 // extern int list;
-// extern int ascii;
-// extern int binary;
+extern int ascii;
+extern int binary;
 extern int content;
 extern int verbose;
 extern int help;
@@ -65,4 +63,12 @@ struct dir_t {        // max 64 directory entries
     int  start;       // start track
     int  end;         // end track
 };   
+
+
+// BASIC Tokens
+struct basic_tokens {
+    char *name;
+    int token;
+};
+
 

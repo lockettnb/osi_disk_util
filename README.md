@@ -19,19 +19,26 @@ This utility is intended to help validate that disk images are
 correctly formated.  It can also be used to convert images
 from ascii to binary or vice vera.
 
-    Usage osidd [options] FILE 
-       -x   --examine      : examine all tracks for valid headers/sectors
-       -t   --track  n     : track to examine (default=all tracks)
+    osidd - OSI Disk Dump
+        +scan OSI disk image for valid tracks/sector format
+        +convert disk image from ascii to binary
+        +display directory information
+        +display content from tracks
+     
+     
+     Usage osidd [options] FILE 
+       -e   --examine      : examine all tracks for valid headers/sectors
+       -t   --track  n     : track to examine, can be a range 0-4 or all (default=all)
        -s   --sector n     : sector to examine (default=sector 1)
      
        -d   --directory    : display directory listing from disk image
      
        -o   --output fname : write image to output file
-       -a   --ascii        : write disk image in ascii (default output format)
-       -b   --binary       : write disk image in binary 
+       -a   --ascii        : write disk image in ascii hex 
+       -b   --binary       : write disk image in binary (default output format)
      
        -c   --content      : display content of track/sector 
-       -f   --force type   : force display to basic, asm, text, hex or string
+       -f   --force type   : force display to basic, asm, text, or hex
      
        -v,  --verbose      : enable verbose output
             --help         : display help and exit
@@ -39,10 +46,7 @@ from ascii to binary or vice vera.
      
      When displaying content the application will guess the format type.
      The format will be one of Basic, Assembler, Text or Data (hex).  
-     This guess can be overridden by the force option.  Forcing string will
-     display all printable ascii chars found in the track/sector.
-
  
 john
-2015/12/26
+2015/12/28
 

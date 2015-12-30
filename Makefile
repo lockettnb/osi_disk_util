@@ -6,8 +6,8 @@
 CFLAGS =  -g 
 CC = gcc 
 
-SRCS	= ddscan.c utils.c osiutils.c
-OBJS	= ddscan.o utils.o osiutils.o
+SRCS	= ddscan.c utils.c osiutils.c content.c
+OBJS	= ddscan.o utils.o osiutils.o content.o
 BINS	= osidd
 HEAD	= 
 LIBS	= 
