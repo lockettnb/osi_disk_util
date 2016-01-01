@@ -62,13 +62,40 @@ struct dir_t {        // max 64 directory entries
     char name[7];     // directory entry name 6 chars long
     int  start;       // start track
     int  end;         // end track
-};   
+};
 
 
-// BASIC Tokens
+// Basic Tokens
 struct basic_tokens {
     char *name;
     int token;
 };
 
 
+// OSI Utilities
+void write_image(uint8_t disk[], struct index_t index[], char *fname);
+int load_image(char *fname, uint8_t disk[], struct index_t index[], struct dir_t dir[]);
+void examine_track(uint8_t disk[], int disksize, struct index_t index[], int track);
+void print_track(uint8_t disk[], struct index_t index[], int track);
+void print_directory(uint8_t disk[], struct index_t index[]);
+int loadsector(uint8_t disk[], struct index_t index[], uint8_t buffer[], int sk_track, int sk_sector);
+int seek_track(uint8_t disk[], int seek_tk);
+int image_format(FILE *fp, int *asciiformat);
+
+// Utility Functions
+void chomp(char *s);
+void lower(char s[]);
+int fsize(const char *filename);
+int bcdtobin(uint8_t bcd);
+void get_optvalue(char *dest, char *optvalue, int max);
+int hexbin(int hi, int low);
+void printhex(uint8_t b[], int offset, int addr, int count);
+void inst(char *iptr[], int status);
+
+// Content Analysis Functions
+int ismachine(uint8_t disk[], struct index_t index[], int track, int sector);
+int isasm(uint8_t disk[], struct index_t index[], int track, int sector);
+int isbasic(uint8_t disk[], struct index_t index[], int track, int sector);
+void basic_print( uint8_t disk[], struct index_t index[], int track );
+void asm_print( uint8_t disk[], struct index_t index[], int track );
+// void token_print(int tok);

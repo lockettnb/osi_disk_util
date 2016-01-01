@@ -137,4 +137,56 @@ Code extract from the DIR command
      11130 NEXT I
      11140 RETURN
 
+Basic Format
+------------
+Basic files are loaded starting at memory $3179.  The file includes
+a start address, end address and number of tracks.
+In the example below: start=$317f end=$342a tracks=01 followed by NULL.
+
+    003179  7f 31 2a 34 01 00 8d 31 05 00 44 56 ab 31 3a 20   |.1*4...1..DV.1: |
+    003189  88 32 30 00 a6 31 0a 00 84 20 22 44 45 56 49 43   |.20..1... "DEVIC|
+
+The first line of the source is a at $317f.  Each line is has a pointer
+to the next line, line number , line text or tokens.  All the basic key
+words are saved a tokens value ($80-$c3). In the example below we see the
+first line points to the second line at $318d.  It is line number $0005 and
+finishes with a NULL. The second line is line 10 and starts with a token $84
+which is the INPUT keyword.
+
+     8d 31 05 00 44 56 ab 31 3a 20 88 32 30 00
+     ----- -----                            --
+     |     line 5                          eol
+     |
+     --->a6 31 0a 00 84 20 22 44 45 56 49 43 45 20 ...3b 44 56 00
+          ----- ----                                           --
+                line 10                                        eol
+
+
+Assembler Source Files
+----------------------
+Assembler files are loaded starting at memory $3179.  The file includes
+a start address, end address and  number of tracks.
+In the example below: start=$317e end=$3976 tracks=01.
+
+    000000  7e 31 76 39 01 0a 00 3b 0d 14 00 41 43 49 41 31   |~1v9...;...ACIA1|
+    000010  20 fd 3d 24 43 46 30 ff 20 ff 43 33 41 20 f7 31   | .=$CF0. .C3A .1|
+    000020  32 30 ff 20 42 41 55 44 0d 1e 00 41 43 49 41 32   |20. BAUD...ACIA2|
+    000030  20 fd 3d 24 43 46 30 32 20 ff 43 32 4f 45 4d 20   | .=$CF02 .C2OEM |
+
+Each source line is a line number followed by text upto a carraige return <$0d>.
+Repeated characters are represented by negitive numbers (-1 <$ff> for repeat
+one, -2 <$fe> for repeat two, etc).  Weird stuff.
+
+    line 10
+          ;  <cr>
+    0a 00 3b 0d
+
+    line 20
+           ACIA1<sp><repeat 3>=$CFO<repeat 1><sp><repeat 1>C3A<sp><repeat 9>
+    14 00 41 43 49 41 31 20 fd 3d 24 43 46 30 ff 20 ff 43 33 41 20 f7
+    
+       120<repeat 1><sp>BAUD<cr>
+       31 32 30 ff 20 42 41 55 44 0d
+
+
 

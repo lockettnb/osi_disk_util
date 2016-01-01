@@ -119,7 +119,7 @@ int hexbin(int hi, int low) {
 // hex print 
 //  2015/12/18 created
 //
-void printhex(uint8_t b[], int addr, int count) {
+void printhex(uint8_t b[], int offset, int addr, int count) {
 int i, j;
 int start, end;
 int start_row, end_row;
@@ -133,7 +133,7 @@ int start_row, end_row;
 // printf("start %04x %04x end %04x %04x\n", start_row, start, end_row, end);
 
     for (i=start_row; i<=end_row; i=i+16) {
-        printf("%06x  ", i);
+        printf("%06x  ", i+offset);
         for(j=0; j<16; j++) {
             if( (i+j>=start) && (i+j<=end) )
                 printf("%02x ", b[i+j]); 

@@ -16,19 +16,57 @@
 #define TEST_LIMIT 256 
 
 //--------------------------------------------------------
+// scan for assembler instructions
+int asm_instruction_scan(uint8_t buff[], int bsize)
+{
+int i;
+int j=0;
+int opcount=0;
+char opvalue[4];
+char *codes[] = {   // a few popular instructions 
+            "LDA", "STA", "DEC", "INC", "AND", "CMP", "SBC",
+            "LDX", "STX", "DEX", "INX", "TSX",  
+            "LDY", "STY", "DEY", "INY",
+            "BEQ", "BNE", "BCC", "BCS", "BPL", "BMI",
+            "JSR", "JMP",
+            NULL
+};
+
+    debug_print("isasm: starting scan for assembler instructions %i\n", bsize);
+    for(i=0; i<bsize-3; i++) {
+       opvalue[0]=buff[i];
+       opvalue[1]=buff[i+1];
+       opvalue[2]=buff[i+2];
+       opvalue[3]='\0';
+
+       j=0;
+       while (codes[j] != NULL) {
+//              ddebug_print("isasm: %i %i compare %s to %s \n", i,j,codes[j], opvalue);
+            if(strcmp(codes[j++], opvalue) == 0) {
+                 ddebug_print("isasm: found assembler opcode %s\n", opvalue);
+                opcount++;
+            }
+        }
+    } 
+
+    return opcount;
+} // op instruction scan
+
+//--------------------------------------------------------
 // scan for specific 6502 op codes
-int machinecode(uint8_t buff[], int bsize, int idx) {
+int machinecode(uint8_t buff[], int bsize)
+{
 int opcount=0;
 int i;
 
-    for(i=0; i<bsize; i++) {
+    for(i=0; i<bsize-2; i++) {
         // look for "LDA #nn" followed by "STA nn" or "STA n"
-        if( (buff[i] == 0xa9) && (buff[i+2]==0x8d) || (buff[i+2]==0x85) ) {
+        if( (buff[i] == 0xa9) && ((buff[i+2]==0x8d) || (buff[i+2]==0x85)) ) {
             opcount++;
             ddebug_print("ismachine: LDA/STA instruction codes found\n");
         }
         // look for "LDA n" followed by "STA nn" or "STA n"
-        if( (buff[i] == 0xa5) && (buff[i+2]==0x8d) || (buff[i+2]==0x85) ) {
+        if( (buff[i] == 0xa5) && ((buff[i+2]==0x8d) || (buff[i+2]==0x85)) ) {
             opcount++;
             ddebug_print("ismachine: LDA/STA instruction codes found\n");
         }
@@ -40,9 +78,9 @@ int i;
 //--------------------------------------------------------
 // ISML -- test if track is 6502 machine code 
 //
-int ismachine(uint8_t disk[], int disksize, struct index_t index[], int track, int sector) {
+int ismachine(uint8_t disk[], struct index_t index[], int track, int sector)
+{
 int dh=0;
-int i;
 int bsize;
 int control, printable, highbit, op;
 
@@ -56,24 +94,25 @@ uint8_t buffer[TRACKSIZE];
         return FAIL;
     }
         
-    if( loadsector(disk, disksize, index, buffer, track, sector) == FAIL) {
+    if( loadsector(disk, index, buffer, track, sector) == FAIL) {
         fprintf(stderr, "%s: Error trying to load basic program on track %i\n",\
                 program_name, track);
         exit(1);
     }
     bsize = index[track].pages[1]*256-1;
-    if(debug) printhex(buffer, 0, 32);
+    if(debug) printhex(buffer, 0, 0, 32);
 
     while(dh<=TEST_LIMIT) {
         if(isprint(buffer[dh])) printable++;
         if(buffer[dh] <= 0x1f) control++;
         if(buffer[dh] >= 0x80) highbit++; 
-    ddebug_print("ismachine: %i %04x control=%i printable=%i highchars=%i\n", dh, buffer[dh], control, printable, highbit);
+        ddebug_print("ismachine: %i %04x control=%i printable=%i highchars=%i\n",\
+                    dh, buffer[dh], control, printable, highbit);
         dh++;
     }
     debug_print("ismachine: control=%i printable=%i highchars=%i\n", control, printable, highbit);
 
-    op = machinecode(buffer, bsize, i);
+    op = machinecode(buffer, bsize);
     debug_print("ismachine: opcode scan = %i\n", op);
    
     if((control > 0) && (printable > 0 ) && (highbit > 0) && (op > 0)) 
@@ -84,38 +123,11 @@ uint8_t buffer[TRACKSIZE];
 }
 
 //--------------------------------------------------------
-// scan for assembler operation codes
-int opcode(uint8_t buff[], int idx) {
-int i=0;
-char opvalue[4];
-char *codes[] = {
-            "LDA", "STA", "DEC", "INC", "AND", "CMP", "SBC",
-            "LDX", "STX", "DEX", "INX", "TSX",  
-            "LDY", "STY", "DEY", "INY",
-            "BEQ", "BNE", "BCC", "BCS", "BPL", "BMI",
-            "JSR", "JMP",
-            NULL
-};
-
-    opvalue[0]=buff[idx];
-    opvalue[1]=buff[idx+1];
-    opvalue[2]=buff[idx+2];
-    opvalue[3]='\0';
-
-   while (codes[i] != NULL) {
-        if(strcmp(codes[i++], opvalue) == 0) {
-            ddebug_print("isasm: found assembler opcode %s\n", opvalue);
-            return SUCCESS;
-        }
-    }
-} 
-
-//--------------------------------------------------------
 // ISASM -- test if track is 6502 assembler source code
 //
-int isasm(uint8_t disk[], int disksize, struct index_t index[], int track, int sector) {
+int isasm(uint8_t disk[], struct index_t index[], int track, int sector)
+{
 int dh=0;
-int i;
 int bsize;
 int control, printable, highbit, op;
 
@@ -129,13 +141,13 @@ uint8_t buffer[TRACKSIZE];
         return FAIL;
     }
         
-    if( loadsector(disk, disksize, index, buffer, track, sector) == FAIL) {
+    if( loadsector(disk, index, buffer, track, sector) == FAIL) {
         fprintf(stderr, "%s: Error trying to load basic program on track %i\n",\
                 program_name, track);
         exit(1);
     }
     bsize = index[track].pages[1]*256-1;
-    if(debug) printhex(buffer, 0, 32);
+    if(debug) printhex(buffer, 0, 0, 32);
 
     dh=dh+7;      // skip header and line number
     while(dh<=TEST_LIMIT) {
@@ -155,10 +167,8 @@ uint8_t buffer[TRACKSIZE];
         dh++;
     }
     debug_print("isasm: control=%i printable=%i highchars=%i\n", control, printable, highbit);
-   
-    for(i=0; i<=bsize; i++) {
-        if(opcode(buffer, i) == SUCCESS) op++;
-    }
+
+    op = asm_instruction_scan(buffer, bsize);   
     debug_print("isasm: opcode scan = %i\n", op);
 
     if((control < 4) && (printable > TEST_LIMIT/2 ) && (highbit < 4) && (op > 10)) 
@@ -173,7 +183,7 @@ uint8_t buffer[TRACKSIZE];
 //--------------------------------------------------------
 // ISBASIC -- test if track is basic source code
 //
-int isbasic(uint8_t disk[], int disksize, struct index_t index[], int track, int sector) {
+int isbasic(uint8_t disk[], struct index_t index[], int track, int sector) {
 int dh=0;
 int i;
 int control, printable, highbit;
@@ -188,12 +198,12 @@ uint8_t buffer[TRACKSIZE];
         return FAIL;
     }
         
-    if( loadsector(disk, disksize, index, buffer, track, sector) == FAIL) {
+    if( loadsector(disk, index, buffer, track, sector) == FAIL) {
         fprintf(stderr, "%s: Error trying to load basic program on track %i\n",\
                 program_name, track);
         exit(1);
     }
-    if(debug) printhex(buffer, 0, 32);
+    if(debug) printhex(buffer, 0, 0, 32);
 
     // scan for a null, marks end-of-line
     for (i=0; i<=TEST_LIMIT; i++) {
@@ -231,7 +241,8 @@ uint8_t buffer[TRACKSIZE];
 // print basic token
 //  2015/12/28 created
 //
-void token_print(int tok) {
+void token_print(int tok)
+{
 int i=0;
 
 struct basic_tokens token[] = {
@@ -318,12 +329,15 @@ while(token[i].name != NULL) {
     i++;
 }
 
-printf("<token=%02x> ", tok);
+printf("<%02x> ", tok);
 
-}
+} // print token
 
-void basic_print( uint8_t disk[], int disksize, struct index_t index[], int track ) {
-int i, j;
+// -------------------------------------------------------------
+// Print Track content as BASIC source code
+//
+void basic_print( uint8_t disk[], struct index_t index[], int track )
+{
 int done=FALSE;
 int dh=0;
 int start_addr;
@@ -336,27 +350,30 @@ uint8_t buffer[TRACKSIZE];
 
     memset(buffer, 0xeb, sizeof(buffer));   // empty marker, illegal instruction
 
-    if( loadsector(disk, disksize, index, buffer, track, 1) == FAIL) {
+    if( loadsector(disk, index, buffer, track, 1) == FAIL) {
         fprintf(stderr, "%s: Error trying to load basic program on track %i\n",\
                 program_name, track);
         exit(1);
     }
 
-    printhex(buffer, 0, 32);
+    printhex(buffer, 0, 0, 32);
     start_addr = buffer[0] | (buffer[1]<<8);
     end_addr = (buffer[2] | (buffer[3])<<8);
     ntracks = buffer[4];
-    printf(">>print basic: start=%04x end=%04x num tracks=%i\n", start_addr, end_addr, ntracks);
+    printf("Tracks:%i\n", ntracks);
+    printf("<%04x>  Start Address", start_addr);
     dh=5;       // start of basic, should be a 0x00
     while (!done) {
         if(buffer[dh] == 0) {
             pointer=buffer[dh+1] | (buffer[dh+2]<<8);     // pointer to next line
             lineno =buffer[dh+3] | ( buffer[dh+4]<<8);    // line number
-            printf("\n<%04x> <%6i> ", pointer, lineno);
-            dh=dh+5;                                        // start of text or token
-            if(pointer == 0) {                              // null point we are done
+            dh=dh+5;                                      // start of text or token
+            if(pointer == 0) {                            // null point we are done
                 done=TRUE;
+                printf("\n");
+                continue;
             }
+            printf("\n<%04x> %8i ", pointer, lineno);
             continue;
         }
         if(isprint(buffer[dh]))                          // printable text
@@ -369,6 +386,73 @@ uint8_t buffer[TRACKSIZE];
             printf("\%02x", buffer[dh]);
         dh++;
     }
+    printf("<%04x>  End Address", end_addr);
+    printf("\n");
+}
+
+// -------------------------------------------------------------
+// Print Track content as Assembler source code
+//
+void asm_print( uint8_t disk[], struct index_t index[], int track )
+{
+int done=FALSE;
+int dh=0;
+int start_addr;
+int end_addr;
+int ntracks;
+int lineno;
+uint8_t buffer[TRACKSIZE];
+int repeat;
+int i;
+
+    memset(buffer, 0xeb, sizeof(buffer));   // empty marker, illegal instruction
+
+    if( loadsector(disk, index, buffer, track, 1) == FAIL) {
+        fprintf(stderr, "%s: Error trying to load basic program on track %i\n",\
+                program_name, track);
+        exit(1);
+    }
+
+    if(verbose) printhex(buffer, 0, 0, 64);
+    start_addr = buffer[0] | (buffer[1]<<8);
+    end_addr = (buffer[2] | (buffer[3])<<8);
+    ntracks = buffer[4];
+    printf("Tracks:%i\n", ntracks);
+    printf("<%04x>  Start Address\n", start_addr);
+
+    dh=5;                   // start of assembler, should be first line number 
+    lineno=buffer[dh] | ( buffer[dh+1]<<8);    // line number
+    printf("%8i ",lineno);
+    dh=dh+2;
+    
+    while (!done) {
+        if(buffer[dh]==0) {
+            done=TRUE;
+            printf("\n");
+            ddebug_print("asmprint: done %i \n", dh);
+            continue;
+        }
+        if(buffer[dh] == 0x0d) {
+            ddebug_print("<cr> %i \n", dh);
+            lineno=buffer[dh+1] | ( buffer[dh+2]<<8);    // line number
+            dh=dh+3;                                      // start of text or token
+            printf("\n%8i ", lineno);
+            continue;
+        }
+        if(isprint(buffer[dh]))                          // printable text
+            printf("%c", buffer[dh]);
+
+        if(buffer[dh] >= 0x80) {                         // repeat pervious char 
+            repeat = ~(0xffffff00 | buffer[dh])+1;
+            ddebug_print("\nasmprint: 0x%02x repeat %i ", buffer[dh], repeat);
+            for(i=0; i<repeat; i++) printf("%c", buffer[dh-1]);
+        }
+    
+        if(buffer[dh] < 0x20)                           // illegal char
+            printf("\%02x", buffer[dh]);
+        dh++;
+    }
+    printf("<%04x>  End Address", end_addr);
     printf("\n");
 }
 

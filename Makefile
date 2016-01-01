@@ -3,7 +3,7 @@
 #
 
 #CFLAGS =  -g -DDEBUG
-CFLAGS =  -g 
+CFLAGS =  -g -Wall
 CC = gcc 
 
 SRCS	= ddscan.c utils.c osiutils.c content.c
