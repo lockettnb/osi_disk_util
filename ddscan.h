@@ -23,17 +23,33 @@
 // .....row example 22 00 08 A9 01 20 B6 22 20 BC 26 A9 2A 85 FF 20
 #define MAX_ASCII_SIZE ((16*3)+2)*240*77
 
-// 0-76 tracks or 16 pages 
-#define TRACKSIZE 4096
+// 0-76 tracks of max 15 pages each 
+#define TRACKSIZE 256*16
 #define TRACKS 77
 #define DIRTRACK 8
 #define FULL_DISK TRACKS*TRACKSIZE
+
+// C3A memory size (48k)
+#define FULL_MEMORY 1024*48
+#define OS65D_BUFFER 0x3179
 
 // content display formats
 #define BAS 1
 #define ASM 2
 #define TXT 3
 #define HEX 4
+#define RAW 5
+
+// colour for ansi terminals
+#define BACKGND 39
+#define BLACK 30
+#define RED 31
+#define GREEN 32
+#define YELLOW 33
+#define BLUE 34
+#define MAGENTA 35
+#define CYAN 36
+#define WHITE 97
 
 // Global Option Flags 
 // extern int examine;
@@ -73,23 +89,28 @@ struct basic_tokens {
 
 
 // OSI Utilities
+int  load_image(char *fname, uint8_t disk[], struct index_t index[]);
+void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[]);
 void write_image(uint8_t disk[], struct index_t index[], char *fname);
-int load_image(char *fname, uint8_t disk[], struct index_t index[], struct dir_t dir[]);
 void examine_track(uint8_t disk[], int disksize, struct index_t index[], int track);
 void print_track(uint8_t disk[], struct index_t index[], int track);
-void print_directory(uint8_t disk[], struct index_t index[]);
-int loadsector(uint8_t disk[], struct index_t index[], uint8_t buffer[], int sk_track, int sk_sector);
-int seek_track(uint8_t disk[], int seek_tk);
-int image_format(FILE *fp, int *asciiformat);
+void print_directory(struct dir_t dir[]);
+int  loadsector(uint8_t disk[], struct index_t index[], uint8_t buffer[], int sk_track, int sk_sector);
+int  seek_track(uint8_t disk[], int seek_tk);
+int  image_format(FILE *fp, int *asciiformat);
+int loadmemory(uint8_t disk[], struct index_t index[], uint8_t buffer[], int sk_track);
+void get_content_type(uint8_t disk[], struct index_t index[], int track, int sector, char *type);
+void cout(FILE *fp, uint8_t byte, int *count);
 
 // Utility Functions
+void colour(int c);
 void chomp(char *s);
-void lower(char s[]);
+void lower(char *s);
 int fsize(const char *filename);
 int bcdtobin(uint8_t bcd);
 void get_optvalue(char *dest, char *optvalue, int max);
 int hexbin(int hi, int low);
-void printhex(uint8_t b[], int offset, int addr, int count);
+void hex(uint8_t b[], int offset, int addr, int count);
 void inst(char *iptr[], int status);
 
 // Content Analysis Functions
@@ -98,4 +119,5 @@ int isasm(uint8_t disk[], struct index_t index[], int track, int sector);
 int isbasic(uint8_t disk[], struct index_t index[], int track, int sector);
 void basic_print( uint8_t disk[], struct index_t index[], int track );
 void asm_print( uint8_t disk[], struct index_t index[], int track );
-// void token_print(int tok);
+void raw_print(uint8_t disk[], struct index_t index[], int track);
+void hex_print(uint8_t disk[], struct index_t index[], int track);

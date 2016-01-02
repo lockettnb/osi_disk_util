@@ -1,9 +1,12 @@
 #
-# 2015/12/17 
+# 2015/12/17
+# 2016/01/01 added gcc warnings to cflags
 #
 
 #CFLAGS =  -g -DDEBUG
-CFLAGS =  -g -Wall
+# CFLAGS =  -g -Wall -Wextra -Wpointer-sign
+CFLAGS =  -g -Wall -Wextra 
+# CFLAGS =  -g -Wall -Wextra -Wno-pointer-sign
 CC = gcc 
 
 SRCS	= ddscan.c utils.c osiutils.c content.c

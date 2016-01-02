@@ -14,7 +14,9 @@
 #include "ddscan.h"
 
 //-------------------------------------------------------------------
-// print hex ascii byte to file in rows of 16 bytes
+// write byte to file and update bytes written count
+//  --binary is simple write
+//  --hex ascii is write in rows of 16 bytes
 //
 void cout(FILE *fp, uint8_t byte, int *count) {
 
@@ -96,9 +98,13 @@ const int tkmax=15*256;   // every track will be 15 pages long, null padded to f
 
 } // write image
 
-void get_content_type(uint8_t disk[], struct index_t index[], int track, int sector, char *type) {
+//-------------------------------------------------------------------
+// guess (thru careful analysis) the content type of  track/sector 
+//
+void get_content_type(uint8_t disk[], struct index_t index[], int track, int sector, char *type)
+{
+    strcpy(type , "Unknown");           // default 
 
-    strcpy(type , "Unknown");
     if(isbasic(disk, index, track, sector)==SUCCESS) {
         strcpy(type, "BASIC");
         return;
@@ -115,45 +121,6 @@ void get_content_type(uint8_t disk[], struct index_t index[], int track, int sec
     }
 }
 
-//-------------------------------------------------------------------
-void print_track(uint8_t disk[], struct index_t index[], int track)
-{
-int i;
-int content_found=FALSE;
-int sect;
-int pages;
-char ctype[32];
-uint8_t buffer[256*15];     // OS65D is max 12 pages
-
-    if(track ==0) {
-        printf("\nTrack %i:\n", track);
-        printhex(disk, 0, index[track].header, 8*256);
-        return;
-    }
-        
-    for(i=1; i<=6; i++) { 
-       sect=index[track].sector[i];
-       pages=index[track].pages[i];
-       debug_print(">>print track seeking: t %i sector %i\n", track, i);
-       if(sect != 0) {
-           get_content_type(disk, index, track, i, ctype);
-           printf("\nTrack%i:  Sector%i: Pages: 0x%02x (%i)  %s\n", track, i , pages, pages, ctype); 
-           loadsector(disk, index, buffer, track, i);
-           printhex(buffer, 0x3179, 0, pages*256);
-           content_found=TRUE;
-        }
-
-    }
-    if(content_found) 
-        printf("\n");
-    else {
-        printf("\nTrack %i: empty\n", track);
-        printhex(disk, 0, index[track].header, 64);
-    }
-
-}
-
-
 
 // ------------------------------------------------------
 // load file into  disk buffer
@@ -162,7 +129,7 @@ uint8_t buffer[256*15];     // OS65D is max 12 pages
 //  2015/12/18 created
 //  2015/12/21 added creation of index and dir structures
 //
-int load_image(char *fname, uint8_t disk[], struct index_t index[], struct dir_t dir[])
+int load_image(char *fname, uint8_t disk[], struct index_t index[])
 {
 FILE *fp;
 int filesize;       // size of the file we are trying to load
@@ -180,8 +147,8 @@ int tk;
     //     0  -load address high normally = 0x22
     //     1  -load address low  normally = 0x00
     //     2  -page count        normally = 0x08
-    // read tracks 1 to 76
-    // review of the track format:
+
+    // review of the track 1-76 format:
     //     0,1 -2 byte start code $43, $57
     //     2  -track number in BCD
     //     3  -track type code (always $58)
@@ -195,7 +162,6 @@ int tk;
 
     memset(disk,  '\0', sizeof(disk));
     memset(index, '\0', sizeof(index));
-    memset(dir,   '\0', sizeof(dir));
 
     if((fp=fopen(fname, "r")) == NULL) {
         fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);
@@ -213,21 +179,19 @@ int tk;
         exit(1);
     }
     
-    if(filesize > MAX_ASCII_SIZE) {
+    if(filesize > MAX_ASCII_SIZE) {     // defensive check
         fprintf(stderr, "%s:Error: disk image file %s is too big\n", program_name, fname);
         exit(1);
     }
 
     if(image_format(fp, &asciimode) == FAIL) {
         fprintf(stderr, "%s: Error disk image file %s format is gobbledygook\n", program_name, fname);
-
         exit(1);
     }
 
+// PHASE 1 -- load disk image from file into disk buffer
     // track zero should alway start with loadhi=0x22 loadlow=0x00 page count=0x08
     // ... so load first 3 chars from file
-    // if chars are string "22 " then this is ascii image
-    // if chars are 0x22 0x00 0x08 then this is binary image
     c0=fgetc(fp);
     c1=fgetc(fp);
     c2=fgetc(fp);
@@ -238,23 +202,23 @@ int tk;
         disk[dh++]=c1;
         disk[dh++]=c2;
     }
-    // track 0, no header so set start and  header to zero
+    // track 0, no header, set index start and  header to zero
     index[track].start=0;
     index[track].header=0;
 
     if(asciimode) {     // this is a bit complicated but I want to keep track info
         c0 = fgetc(fp);
         while((c1 = fgetc(fp)) != EOF) {
-//     printf("dh=%06x c0=%02x c1=%02x\n", dh, c0,c1);
+//          printf("dh=%06x c0=%02x c1=%02x\n", dh, c0,c1);
             if(c0=='\n' && c1=='\n') {      // blank line is end of the track
                 index[++track].start=dh;  // next byte is start of next track
-//                 ddebug_print("***asciimode track %i at %06x\n", track, index[track].start);
+//              ddebug_print("***asciimode track %i at %06x\n", track, index[track].start);
                 c0=c1;
                 continue;
             }
             if(isxdigit(c0) && isxdigit(c1)) {  // both hex digits, we have a byte
                 disk[dh++] = hexbin(c0,c1); 
-//                  ddebug_print("***asciimode byte %02x at %06x\n", disk[dh-1], dh-1);
+//              ddebug_print("***asciimode byte %02x at %06x\n", disk[dh-1], dh-1);
                 c0 = fgetc(fp);
                 continue;
             }
@@ -266,26 +230,31 @@ int tk;
                  continue;          //   ....curse you MSDOS!!
             }
         }  
-        fclose (fp);
     } else { // binary image
         while((c0 = fgetc(fp)) != EOF) {
             disk[dh++] = c0; 
             if(dh >= FULL_DISK) {
-                fprintf(stderr, "%s: Warning, binary disk image is too big to load completely\n", program_name);
+                fprintf(stderr, "%s: Warning, binary disk image is too big to load completely, %i\n",\
+                        program_name, dh);
                 break;
             }
         }
-        fclose (fp);
     }
-dsize = dh;
+    fclose (fp);
+    dsize = dh;
 
-// we have the disk loaded into memory now we scan each track
-// for sectors and page counts
-tk=0;
-index[tk].start=0;
-index[tk].header=0;
+// PHASE 2 -- scan disk image to build index of tracks/sectors/page counts
+//
 
-for(tk=1; tk<77; tk++) {
+// track zero is a special case
+// track zero must start at first byte of the image
+// track zero has no sectors so we leave them as 0's
+// always 8 pages long but we will get that from the disk image not the index
+index[0].start=0;      
+index[0].header=0;
+
+
+for(tk=1; tk<=76; tk++) {
     dh = seek_track(disk, tk);
     if(dh >= dsize){
         fprintf(stderr, "%s: Error, ran past end of disk image while seeking track %i\n",\
@@ -295,19 +264,18 @@ for(tk=1; tk<77; tk++) {
     ddebug_print("***load image: track %i found at offset %06x\n", tk, dh);
 
     // we are at the start of the track header
-    if(!asciimode) index[tk].start=dh;  // for binary images only
-    index[tk].header=dh;     // record the header start offset 
-    sector=1;               // and by default this is the first sector
-    
-    if (i==0)               // skip over track header
-        dh=dh+3;            // track zero has three byte header
-    else
-        dh=dh+4;            // all other tracks have four byte header
+    if(!asciimode) index[tk].start=dh;   // binary images only, record start offset
+                                         // ascii images are set during load process
+    index[tk].header=dh;                 // record header offset 
 
+    sector=1;                            // and by default this is the first sector
+    dh=dh+4;                             // skip over four byte header
 
-    // scan for upto 4 sectors on this track
+    // scan for upto 6 sectors on this track
     while(sector<=6){
         //step ahead to sector marker, sometime there are spurious chars to skip
+        // sometimes images have a few weird bytes between sectors
+        // we need to skip them  
         for(i=0; i<=12; i++) {
             if(disk[dh+i] == 0x76) break; 
             ddebug_print("***load image: %i stepping for header sector %i ...offset=%06x data=%02x\n",\
@@ -320,19 +288,23 @@ for(tk=1; tk<77; tk++) {
         }
 
         dh=dh+i;
+        // we are at the start of sector
         ddebug_print("***load image: %i finished seeking sector %i ...offset=%06x byte=%02x\n",\
                          i, sector, dh, disk[dh]);
 
-        if(sector==disk[dh+1]) {
+        if(sector==disk[dh+1]) {        // make sure we are at the right sector
+            // record sector offset and page count
             index[tk].sector[sector]=dh;
             index[tk].pages[sector]=disk[dh+2];
             ddebug_print("**load image: *recording track=%i sector=%i offset=%06x pages=%i\n", \
                          tk, sector, index[tk].sector[sector], index[tk].pages[sector]);
-            // data section, we skip over it
+
+            // data section, we skip over this to the sector end marker
             dh=dh+3;           // move to first byte of data
             ddebug_print("**load image: *data section starts at %06x byte=%02x\n", dh, disk[dh]);
-            dh=dh+(256*index[tk].pages[sector])-1;
+            dh=dh+(256*index[tk].pages[sector])-1;      // skip data section
             ddebug_print("**load image: *data section ends at %06x byte=%02x\n", dh, disk[dh]);
+
             dh++;           // move to sector end marker "0x43 0x57"
             ddebug_print("**load image: *sector end marker at %06x=%02x %02x\n", dh, disk[dh], disk[dh+1]);
             sector++;
@@ -343,8 +315,8 @@ for(tk=1; tk<77; tk++) {
                         program_name, tk, sector, dh);
             sector=99;
         }
-    }
-}
+    } // while for each sector
+} // for each track
 
 return dsize;
 }
@@ -401,30 +373,70 @@ char ctype[32];
             if(verbose) {
                 loadsector(disk, index, sector_buf, track, i);
                 printf("\n  Data: Sector %i\n", i);
-                printhex(sector_buf, 0, 0, 64);
+                hex(sector_buf, 0, 0, 64);
             }
     }
     printf("\n");
     if(no_sectors && verbose) {
         printf("  Data: no sectors, data at start of track\n");
-        printhex(disk, 0, index[track].header, 64);
+        hex(disk, 0, index[track].header, 64);
         printf("\n");
     }
 
 }
 
+// -----------------------------------------------------------
+// directory listing 
+//  2016/01/01 created
+void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[])
+{
+uint8_t sector_buf[256];        // directory sectors are one page long
+char name[8];
+int start, end;
+int i,j,t;
+int idx=0;
+
+    memset(dir, 0, sizeof(dir));
+
+    for(t=1; t<=2; t++) {
+        if(loadsector(disk, index, sector_buf, DIRTRACK, t) == FAIL) {
+            fprintf(stderr, "%s: seek error. Cannot find track %i\n", program_name, DIRTRACK);
+            exit(1);
+        }
+//         if(debug) hex(sector_buf, 0, 0, 256);
+
+        for(i=0; i<256; i=i+8) {
+            if(sector_buf[i] == 0x23) {
+                strcpy(dir[idx].name, "empty");
+                dir[idx].start = 0;
+                dir[idx].end = 0;
+                ddebug_print("%i: %s\n", idx, dir[idx].name);
+            } else {
+                for(j=0; j<6; j++) 
+                    name[j]=sector_buf[i+j];
+                name[6]= NULL_CHAR;
+                start=bcdtobin( sector_buf[i+6] );
+                end=bcdtobin(sector_buf[i+7]);
+                ddebug_print("%i: %s\t\t%i - %i\n", idx, name, start, end);
+                strcpy(dir[idx].name, name);
+                dir[idx].start = start;
+                dir[idx].end = end;
+            }
+            idx++;
+        }
+    }
+} // load directory
 
 
 // -----------------------------------------------------------
 // directory listing 
 //  2015/12/18 created
-void print_directory(uint8_t disk[], struct index_t index[])
+//  2016/01/01 modified to use dir struct instead of disk image 
+// 
+void print_directory(struct dir_t dir[])
 {
-uint8_t sector_buf[256];        // directory sectors are one page long
-char name[8];
-int start, end;
 int empty=0;
-int i,j,t;
+int i;
 
 
 printf("\nOS-65D VERSION 3.2\n");
@@ -432,30 +444,17 @@ printf(" -- DIRECTORY --\n\n");
 printf("FILE NAME    TRACK RANGE\n");
 printf("------------------------\n");
 
-for(t=1; t<=2; t++) {
-    if(loadsector(disk, index, sector_buf, DIRTRACK, t) == FAIL) {
-        fprintf(stderr, "%s: seek error. Cannot find track %i\n", program_name, DIRTRACK);
-        exit(1);
-    }
-    if(verbose) printhex(sector_buf, 0, 0, 256);
-
-    for(i=0; i<256; i=i+8) {
-        if(sector_buf[i] == 0x23) {
+    for(i=0; i<64; i++) {
+        if(strcmp(dir[i].name, "empty") == 0) {
+            ddebug_print("dir list: %i empty entry\n", i);
             empty++;
         } else {
-            for(j=0; j<6; j++) 
-                name[j]=sector_buf[i+j];
-            name[6]= NULL_CHAR;
-            start=bcdtobin( sector_buf[i+6] );
-            end=bcdtobin(sector_buf[i+7]);
-            printf("%s\t\t%i - %i\n", name, start, end);
+            printf("%s\t\t%i - %i\n", dir[i].name, dir[i].start,dir[i].end);
         }
     }
-}
+printf("\n %i ENTRIES FREE OUT OF 64\n\n", empty);
 
-printf("\n%i ENTRIES FREE OUT OF 64\n\n", empty);
-
-}
+}  // print directory
 
 
 // -----------------------------------------------------------
@@ -469,23 +468,24 @@ int i;
 
     debug_print(">>loadsector: seeking track=%i sector=%i\n", sk_track, sk_sector);
 
-if( index[sk_track].sector[sk_sector] == 0) {
-    fprintf(stderr, "%s:trying to load non-existing track/sector=%i/%i\n", program_name, sk_track, sk_sector);
-    exit(1);
-}
+    if( index[sk_track].sector[sk_sector] == 0) {
+        fprintf(stderr, "%s:trying to load non-existing track/sector=%i/%i\n",\
+                program_name, sk_track, sk_sector);
+        exit(1);
+    }
 
-// point the disk head to first byte of data (after the sector header)
-dh = index[sk_track].sector[sk_sector]+3;
-pages=index[sk_track].pages[sk_sector];
-debug_print(">>loadsector: loading track=%i sector=%i offset:0x%06x pages:%i\n",\
-             sk_track, sk_sector, dh, pages);
+    // point the disk head to first byte of data (after the sector header)
+    dh = index[sk_track].sector[sk_sector]+3;
+    pages=index[sk_track].pages[sk_sector];
+    debug_print(">>loadsector: loading track=%i sector=%i offset:0x%06x pages:%i\n",\
+                 sk_track, sk_sector, dh, pages);
 
-// ok... we have found the right track and right sector now load data
-for(i=0; i<pages*256; i++) {
-    buffer[i]=disk[dh+i];
-}
+    // ok... we have found the right track and right sector now load data
+    for(i=0; i<pages*256; i++) {
+        buffer[i]=disk[dh+i];
+    }
 
-return SUCCESS;
+    return SUCCESS;
 }   // loadsector function
 
 
@@ -565,5 +565,63 @@ int i;
     fseek(fp, 0L, SEEK_SET);
     return SUCCESS;
 }
+
+
+// -----------------------------------------------------------
+// load track into memory buffer
+//  2015/12/18 created
+//  2016/01/01 modified to load entire set of tracks
+//             required for content analysis
+//
+int loadmemory(uint8_t disk[], struct index_t index[], uint8_t buffer[], int sk_track)
+{
+int dh=0;             // disk head location
+int i,j;
+int pages;
+int load_addr=OS65D_BUFFER;       // address to start to load data
+int begin_addr;        // begin (start) address
+int fin_addr;        // final (finish) address 
+int tknum;
+
+    debug_print(">>loadmemory: seeking track=%i sector=%i\n", sk_track, 1);
+
+    if( index[sk_track].sector[1] == 0) {
+        fprintf(stderr, "%s:trying to load non-existing track/sector=%i/1\n",\
+                    program_name, sk_track);
+        exit(1);
+    } 
+    dh=index[sk_track].sector[1]+3;
+    begin_addr = disk[dh] | (disk[dh+1]<<8);
+    fin_addr  = disk[dh+2] | (disk[dh+3]<<8);
+    tknum=disk[dh+4];      // get number of tracks to load
+    debug_print(">>loadmemory: load=0x%04x begin=0x%04x finish=0x%04x tracks=%i\n",\
+                load_addr, begin_addr, fin_addr, tknum );
+    if(tknum > 9) {
+        fprintf(stderr, "%s: Error loading, too many tracks to load %i\n",program_name, tknum);
+        exit(1);
+    }
+
+    for(i=sk_track; i<sk_track+tknum; i++) {
+        debug_print(">>loadmemory: loading track %i\n", i);
+        if( index[i].sector[1] == 0) {
+            fprintf(stderr, "%s:trying to load non-existing track/sector=%i/1\n",\
+                        program_name, i);
+            exit(1);
+        }
+        // point the disk head to first byte of data (after the sector header)
+        dh = index[i].sector[1]+3;
+        pages=index[i].pages[1];
+        debug_print(">>loadmemory: loading track=%i offset:0x%06x pages:%i\n",\
+                     i, dh, pages);
+
+        // ok... we have found the right track and right sector now load data
+        for(j=0; j<pages*256; j++) {
+//             debug_print(">>0x%04x 0x%04x 0x%02x\n", load_addr, dh, disk[dh]);
+            buffer[load_addr++]=disk[dh++];
+        } 
+    }
+    if(debug) hex(buffer, 0, OS65D_BUFFER, 64);
+    return SUCCESS;
+}   // loadmemory function
 
 

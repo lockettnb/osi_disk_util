@@ -14,6 +14,53 @@
 #include <ctype.h>
 #include "ddscan.h"
 
+// --------------------------------------------------
+// add some colour to your life
+//
+void colour(int c)
+{
+    switch (c) {
+
+    case BLACK:
+        printf("\x1b[30m");
+        break;
+
+    case RED:
+        printf("\x1b[31m");
+        break;
+
+    case GREEN:
+        printf("\x1b[32m");
+        break;
+
+    case YELLOW:
+        printf("\x1b[33m");
+        break;
+
+    case BLUE:
+        printf("\x1b[34m");
+        break;
+
+    case MAGENTA:
+        printf("\x1b[35m");
+        break;
+
+    case CYAN:
+        printf("\x1b[36m");
+        break;
+
+    case WHITE:
+        printf("\x1b[97m");
+        break;
+
+    case BACKGND:
+        printf("\x1b[39m");
+        break;
+
+    }
+}
+
+
 // *************************************************
 // trim whitespace from left and right of string
 //   2015/05/10 created
@@ -62,9 +109,9 @@ char *tail;
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void lower(char s[]) {
+void lower(char *s) {
 int i;
-for(i=0; i==strlen(s); ++i){
+for(i=0; i==(int) strlen(s); ++i){
 printf("%i", i);
        s[i] = tolower(s[i]);
 }
@@ -77,7 +124,7 @@ void get_optvalue(char *dest, char *optvalue, int max) {
     memset(dest, '\0', sizeof(MAXOPSIZE));
 
     if(optvalue==NULL) return;
-    if(strlen(optvalue) > max)  return;
+    if(strlen(optvalue) > (size_t) max)  return;
     strcpy(dest, optvalue);
 }
 
@@ -119,7 +166,7 @@ int hexbin(int hi, int low) {
 // hex print 
 //  2015/12/18 created
 //
-void printhex(uint8_t b[], int offset, int addr, int count) {
+void hex(uint8_t b[], int offset, int addr, int count) {
 int i, j;
 int start, end;
 int start_row, end_row;

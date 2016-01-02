@@ -74,7 +74,7 @@ char *instructions[] = {
     "   -b   --binary       : write disk image in binary (default output format)",
     " ",
     "   -c   --content      : display content of track/sector ",
-    "   -l   --list type    : list track as basic, asm, text, or hex",
+    "   -l   --list type    : list track as basic, asm, hex or raw",
 
     " ",
     "   -v,  --verbose      : enable verbose output",
@@ -82,8 +82,9 @@ char *instructions[] = {
     "        --version      : print version information and exit",
     " ",
     " When displaying content the application will guess the format type.",
-    " The format will be one of Basic, Assembler, Text or Data (hex).  ",
+    " The format will be one of Basic, Assembler, Data (hex).",
     " This guess can be overridden by the list option.",
+    " The raw format will display the entire track including format bytes.",
     " ",
     "                                                     john 2015/12",
     NULL_CHAR
@@ -99,26 +100,26 @@ char in_track[MAXOPSIZE];   // track number from options (set default to all)
 char ofile[MAXOPSIZE];      // output file name from options
 char ltype[MAXOPSIZE];      // list type from options
 int ctype=HEX;              // content type default it to data(hex) 
-
-
-int disksize;            // total number of bytes in disk image
-uint8_t disk[FULL_DISK]; // buffer for disk data
-struct  index_t index[77];
+int disksize;               // total number of bytes in disk image
+uint8_t disk[FULL_DISK];    // buffer for disk data
+struct  index_t index[77];  // track/sector/page index built during load process
 struct dir_t dir[64];
 
 // misc general variables
-int i = 0;              // misc index
-
-int fromtk, totk;          // tracks
+int i = 0;                  // index
+int dirty=FALSE;            // used if no options provided to default something 
+int fromtk, totk;           // tracks
 char xfrom[16];
 char xto[16];
 char *token;
 const char delm[2] = "-";
 
-strcpy(in_track, "all");    // default all tracks
-ofile[1]='\0';              // default write file is none
 program_name=argv[0];
 if (help || version) inst(instructions,0);
+
+// some defaults
+strcpy(in_track, "all");    // default all tracks
+ofile[1]='\0';              // default write file is none
 
 while ((optc=getopt_long(argc, argv, "et:do:abcl:v", long_options, &option_index)) != -1) {
 switch (optc) {
@@ -214,6 +215,7 @@ if(strcmp(ltype, "basic") == 0) ctype = BAS;
 if(strcmp(ltype, "asm") == 0)   ctype = ASM;
 if(strcmp(ltype, "text") == 0)  ctype = TXT;
 if(strcmp(ltype, "hex") == 0)   ctype = HEX;
+if(strcmp(ltype, "raw") == 0)   ctype = RAW;
 
 if ((argc-optind) == 0) {                       // no arguments
     fprintf(stderr, "%s: No disk image file to process\n", program_name);
@@ -221,7 +223,9 @@ if ((argc-optind) == 0) {                       // no arguments
 }
 
 // ok, finally done processing options and stuff load the disk image
-disksize=load_image(argv[optind], disk, index, dir);     //process each file
+disksize=load_image(argv[optind], disk, index);     //process each file
+load_directory(disk, index, dir);
+
 verbose_print("Disk Image: %i bytes (0x%06x)\n\n", disksize, disksize);
 
 if(examine) {
@@ -234,26 +238,32 @@ if(examine) {
             examine_track(disk,disksize, index, i);
         }
     }
+    dirty=TRUE;
 }
 
 if(content) {
   if(totk==99) 
-       for(i=0; i<=76; i++) {
-        if(ctype == HEX) print_track(disk, index, i);
+       for(i=0; i<=76; i++) { // fix this, just set from/to
+        if(ctype == HEX) hex_print(disk, index, i);
         if(ctype == BAS) basic_print(disk, index, i);
        }
    else {
         for(i=fromtk; i<=totk; i++) {
-            if(ctype == HEX) print_track(disk,index, i);
+            if(ctype == HEX) hex_print(disk,index, i);
             if(ctype == BAS) basic_print(disk, index, i);
             if(ctype == ASM) asm_print(disk, index, i);
+            if(ctype == RAW) raw_print(disk, index, i);
         }
     }
+    dirty=TRUE;
 }
 
-if(directory) print_directory(disk, index);
-if( (ofile[1] != '\0')) write_image(disk, index, ofile);
+if( (ofile[1] != '\0')) {
+     write_image(disk, index, ofile);
+     dirty=TRUE;
+}
 
+if(directory || !dirty) print_directory(dir);
 
 exit(SUCCESS);
 }   /* main */

@@ -76,7 +76,7 @@ int i;
 } 
 
 //--------------------------------------------------------
-// ISML -- test if track is 6502 machine code 
+// ismachine -- test if track is 6502 machine code 
 //
 int ismachine(uint8_t disk[], struct index_t index[], int track, int sector)
 {
@@ -100,7 +100,7 @@ uint8_t buffer[TRACKSIZE];
         exit(1);
     }
     bsize = index[track].pages[1]*256-1;
-    if(debug) printhex(buffer, 0, 0, 32);
+    if(debug) hex(buffer, 0, 0, 32);
 
     while(dh<=TEST_LIMIT) {
         if(isprint(buffer[dh])) printable++;
@@ -123,7 +123,7 @@ uint8_t buffer[TRACKSIZE];
 }
 
 //--------------------------------------------------------
-// ISASM -- test if track is 6502 assembler source code
+// isasm -- test if track is 6502 assembler source code
 //
 int isasm(uint8_t disk[], struct index_t index[], int track, int sector)
 {
@@ -147,7 +147,7 @@ uint8_t buffer[TRACKSIZE];
         exit(1);
     }
     bsize = index[track].pages[1]*256-1;
-    if(debug) printhex(buffer, 0, 0, 32);
+    if(debug) hex(buffer, 0, 0, 32);
 
     dh=dh+7;      // skip header and line number
     while(dh<=TEST_LIMIT) {
@@ -181,7 +181,7 @@ uint8_t buffer[TRACKSIZE];
 
 
 //--------------------------------------------------------
-// ISBASIC -- test if track is basic source code
+// isbasic -- test if track is basic source code
 //
 int isbasic(uint8_t disk[], struct index_t index[], int track, int sector) {
 int dh=0;
@@ -203,7 +203,7 @@ uint8_t buffer[TRACKSIZE];
                 program_name, track);
         exit(1);
     }
-    if(debug) printhex(buffer, 0, 0, 32);
+    if(debug) hex(buffer, 0, 0, 32);
 
     // scan for a null, marks end-of-line
     for (i=0; i<=TEST_LIMIT; i++) {
@@ -235,6 +235,45 @@ uint8_t buffer[TRACKSIZE];
     debug_print("isbasic: not Basic Code %i\n", track);
     return FAIL;
 }
+
+//-------------------------------------------------------------------
+void hex_print(uint8_t disk[], struct index_t index[], int track)
+{
+int i;
+int content_found=FALSE;
+int sect;
+int pages;
+char ctype[32];
+uint8_t buffer[256*15];     // OS65D is max 12 pages
+
+    if(track==0) {
+        printf("\nTrack %i:\n", track);
+        hex(disk, 0, index[track].header, 8*256);
+        return;
+    }
+        
+    for(i=1; i<=6; i++) { 
+       sect=index[track].sector[i];
+       pages=index[track].pages[i];
+       debug_print(">>print track seeking: t %i sector %i\n", track, i);
+       if(sect != 0) {
+           get_content_type(disk, index, track, i, ctype);
+           printf("\nTrack%i:  Sector%i: Pages: 0x%02x (%i)  %s\n", track, i , pages, pages, ctype); 
+           loadsector(disk, index, buffer, track, i);
+           hex(buffer, 0x3179, 0, pages*256);
+           content_found=TRUE;
+        }
+
+    }
+    if(content_found) 
+        printf("\n");
+    else {
+        printf("\nTrack %i: empty\n", track);
+        hex(disk, 0, index[track].header, 64);
+    }
+
+}  // print track
+
 
 
 // *************************************************
@@ -321,15 +360,15 @@ struct basic_tokens token[] = {
     {NULL, 0}
 };
 
-while(token[i].name != NULL) {
-    if(token[i].token == tok) {
-        printf("%s", token[i].name);
-        return;
+    while(token[i].name != NULL) {
+        if(token[i].token == tok) {
+            printf("%s", token[i].name);
+            return;
+        }
+        i++;
     }
-    i++;
-}
 
-printf("<%02x> ", tok);
+    printf("<%02x> ", tok);
 
 } // print token
 
@@ -340,31 +379,38 @@ void basic_print( uint8_t disk[], struct index_t index[], int track )
 {
 int done=FALSE;
 int dh=0;
-int start_addr;
+int begin_addr;
 int end_addr;
 int ntracks;
 int lineno;
 int pointer;
-uint8_t buffer[TRACKSIZE];
+int load_addr = OS65D_BUFFER; 
+uint8_t buffer[FULL_MEMORY];
+int starting;                   // boolean 
 
 
     memset(buffer, 0xeb, sizeof(buffer));   // empty marker, illegal instruction
 
-    if( loadsector(disk, index, buffer, track, 1) == FAIL) {
+    if( loadmemory(disk, index, buffer, track) == FAIL) {
         fprintf(stderr, "%s: Error trying to load basic program on track %i\n",\
                 program_name, track);
         exit(1);
     }
 
-    printhex(buffer, 0, 0, 32);
-    start_addr = buffer[0] | (buffer[1]<<8);
-    end_addr = (buffer[2] | (buffer[3])<<8);
-    ntracks = buffer[4];
-    printf("Tracks:%i\n", ntracks);
-    printf("<%04x>  Start Address", start_addr);
-    dh=5;       // start of basic, should be a 0x00
+    begin_addr= buffer[load_addr] | (buffer[load_addr+1]<<8);
+    end_addr = buffer[load_addr+2] | (buffer[load_addr+3]<<8);
+    ntracks = buffer[load_addr+4];
+    debug_print(">>print basic: begin=0x%04x end=0x%04x tracks=%i\n", begin_addr, end_addr, ntracks);
+    if(debug) hex(buffer, 0, begin_addr, 64);
+    debug_print(">>print basic: Number of Tracks:%i\n", ntracks);
+    printf("<%04x>  Start Address", begin_addr);
+
+    dh=begin_addr-1;                         // start of basic should be pointer
+    starting=TRUE;
+
     while (!done) {
-        if(buffer[dh] == 0) {
+        if((buffer[dh] == 0) || starting) {
+            starting=FALSE;
             pointer=buffer[dh+1] | (buffer[dh+2]<<8);     // pointer to next line
             lineno =buffer[dh+3] | ( buffer[dh+4]<<8);    // line number
             dh=dh+5;                                      // start of text or token
@@ -379,7 +425,7 @@ uint8_t buffer[TRACKSIZE];
         if(isprint(buffer[dh]))                          // printable text
             printf("%c", buffer[dh]);
 
-        if(buffer[dh] >= 0x80)                          // token
+        if((buffer[dh] >= 0x80) && (buffer[dh] <= 0xc3))                          // token
             token_print(buffer[dh]);
     
         if(buffer[dh] < 0x20)                           // illegal char
@@ -413,7 +459,7 @@ int i;
         exit(1);
     }
 
-    if(verbose) printhex(buffer, 0, 0, 64);
+    if(verbose) hex(buffer, 0, 0, 64);
     start_addr = buffer[0] | (buffer[1]<<8);
     end_addr = (buffer[2] | (buffer[3])<<8);
     ntracks = buffer[4];
@@ -456,3 +502,86 @@ int i;
     printf("\n");
 }
 
+// -------------------------------------------------------------
+// Print entire track content as hex including headers/footers
+//
+void raw_print(uint8_t disk[], struct index_t index[], int track)
+{
+int i;
+int sect;
+int pages;
+int binary_save;            // this is really stupid, but its early morning
+int ccount=0;               // char counter 
+int ss, se;                 // sector start to sector end 
+int dh;                     // virtual disk head
+
+    binary_save=binary;     // save current binary option setting
+    binary=FALSE;           // ..... and force ascii output in cout funtion
+
+    // TRACK ZERO
+    if(track ==0) {
+        // write header
+        colour(GREEN);
+        cout(stdout, disk[0], &ccount);
+        cout(stdout, disk[1], &ccount);
+        cout(stdout, disk[2], &ccount);
+        colour(BACKGND);
+
+        ss=3;
+        se=ss+disk[2]*256-1;
+        for(dh=ss; dh<=se; dh++) {      // write track zero data
+            cout(stdout, disk[dh], &ccount);
+        }
+        binary=binary_save;
+        printf("\n");
+        return;
+    }
+       
+    if(index[track].start != index[track].header) {
+        colour(RED);
+        for(dh=index[track].start; dh<index[track].header; dh++) {
+            cout(stdout, disk[dh],&ccount);
+        } 
+        colour(BACKGND);
+    }
+
+    // header
+    colour(GREEN);
+    dh=index[track].header; 
+    cout(stdout, disk[dh++],&ccount);
+    cout(stdout, disk[dh++],&ccount);
+    cout(stdout, disk[dh++],&ccount);
+    cout(stdout, disk[dh++],&ccount);
+    colour(BACKGND);
+
+    // sectors
+    for(i=1; i<=6; i++) { 
+       sect=index[track].sector[i];
+       pages=index[track].pages[i];
+        while(dh < sect) {          // highlight any filler bytes
+            colour(RED);
+            cout(stdout, disk[dh++],&ccount);
+            colour(BACKGND);
+        } 
+//         debug_print(">>dh 0x%06x sect:0x%06x pages:0x%06x (%i)\n", dh, sect, pages, pages);
+       if(sect != 0) {
+            colour(YELLOW);
+            cout(stdout, disk[dh++], &ccount);
+            cout(stdout, disk[dh++], &ccount);
+            cout(stdout, disk[dh++], &ccount);
+            colour(BACKGND);
+            for(dh=sect+3; dh<sect+3+256*pages; dh++) {
+                cout(stdout, disk[dh], &ccount);
+            }
+//          debug_print(">>dh 0x%06x sect:0x%06x pages:0x%06x (%i)\n", dh, sect, pages, pages);
+            colour(CYAN);
+            cout(stdout, disk[dh++], &ccount);
+            cout(stdout, disk[dh++], &ccount);
+            colour(BACKGND);
+            
+        }
+
+    }
+    printf("\n");
+    binary=binary_save;
+}  // print raw 
