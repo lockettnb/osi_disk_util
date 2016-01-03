@@ -27,5 +27,8 @@ clean:
 	rm -rf $(BINS) $(OBJS)	
 
 install:
-	cp $(BINS) $HOME/bin/
+	cp $(BINS) $(HOME)/bin/
+
+remove:
+	rm $(HOME)/bin/$(BINS)
 

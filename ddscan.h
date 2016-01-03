@@ -58,6 +58,7 @@
 extern int ascii;
 extern int binary;
 extern int content;
+extern int nocolour;
 extern int verbose;
 extern int help;
 extern int version;

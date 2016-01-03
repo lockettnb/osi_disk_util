@@ -27,6 +27,7 @@ int directory = FALSE;
 int content=FALSE;
 int ascii   = FALSE;
 int binary  = TRUE;
+int nocolour= FALSE;
 int verbose = FALSE;
 int help    = FALSE;
 int version = FALSE;
@@ -48,9 +49,11 @@ struct option long_options[] =
        {"list",    required_argument,  0, 'l'},
 
        {"verbose",  no_argument,        0, 'v'},
+       {"nocolor",  no_argument, &nocolour,    TRUE},
+       {"nocolour", no_argument, &nocolour,    TRUE},
        {"help",     no_argument, &help,    TRUE},
-       {"hello",     no_argument, &hello,   TRUE},
-       {"debug",     no_argument, &debug,   TRUE},
+       {"hello",    no_argument, &hello,   TRUE},
+       {"debug",    no_argument, &debug,   TRUE},
        {"version",  no_argument, &version, TRUE},
        {NULL, 0, NULL, 0}
      };
@@ -65,7 +68,7 @@ char *instructions[] = {
     " ",
     " Usage osidd [options] FILE ",
     "   -e   --examine      : examine all tracks for valid headers/sectors",
-    "   -t   --track  n     : track to examine, can be a range 0-4 or all (default=all)",
+    "   -t   --track  n     : track to examine, can be a range 0-4 or all (default)",
     " ",
     "   -d   --directory    : display directory listing from disk image",
     " ",
@@ -75,7 +78,7 @@ char *instructions[] = {
     " ",
     "   -c   --content      : display content of track/sector ",
     "   -l   --list type    : list track as basic, asm, hex or raw",
-
+    "        --nocolour     : turn off colour highlight for raw output",
     " ",
     "   -v,  --verbose      : enable verbose output",
     "        --help         : display help and exit",
@@ -83,10 +86,14 @@ char *instructions[] = {
     " ",
     " When displaying content the application will guess the format type.",
     " The format will be one of Basic, Assembler, Data (hex).",
-    " This guess can be overridden by the list option.",
-    " The raw format will display the entire track including format bytes.",
+    " This guess can be overridden by the list option. Overriding the with ",
+    " the wrong format can icreate some very messy output.",
     " ",
-    "                                                     john 2015/12",
+    " The raw format will display the entire track including format bytes with",
+    " colour highlights; green=track header, yellow=sector header, ",
+    " cyan=sector footer, red=filler bytes that are not part of the OS65D format",
+    " ",
+    "                                                     john 2016/01",
     NULL_CHAR
     };
 

@@ -19,6 +19,8 @@
 //
 void colour(int c)
 {
+    if(nocolour) return;
+
     switch (c) {
 
     case BLACK:
