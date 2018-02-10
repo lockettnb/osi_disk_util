@@ -160,8 +160,8 @@ int tk;
     //     2   -end of sector mark $47, $53
     //      next sector or undefined filler data
 
-    memset(disk,  '\0', sizeof(disk));
-    memset(index, '\0', sizeof(index));
+    memset(disk,  '\0', FULL_DISK);
+    memset(index, '\0', 77*sizeof(struct index_t));
 
     if((fp=fopen(fname, "r")) == NULL) {
         fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);
@@ -396,7 +396,8 @@ int start, end;
 int i,j,t;
 int idx=0;
 
-    memset(dir, 0, sizeof(dir));
+    // fix this size thingy
+    memset(dir, 0, 64*sizeof(struct dir_t));
 
     for(t=1; t<=2; t++) {
         if(loadsector(disk, index, sector_buf, DIRTRACK, t) == FAIL) {

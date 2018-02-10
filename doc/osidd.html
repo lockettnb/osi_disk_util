@@ -1,0 +1,212 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <link rel="stylesheet" href="md.css" type="text/css" />
+</head>
+<body>
+<h1 id="osi-disk-dump-utility-osidd">OSI Disk Dump Utility (osidd)</h1>
+<p>I have been dumping my OS65D diskettes using the C3dump utility (http://osi.marks-lab.com/software/tools.html) and capturing the disk images via the serial port. The result is a text file with the disk image saved as ascii hex. I wanted to convert them to binary but more importantly I needed to make sure the disk image was valid with all the correct track/sector formatting. With a little time and C code, the result is the OSI Disk Dump utility.</p>
+<p>The program ONLY works on OS65D disk images from 8 inch floppies. I have a few things hardcoded (i.e. 77 tracks) that are specific to 8 inch floppies. It will NOT work on 5.25 inch disk images and will NOT work on OS65U disk images.</p>
+<p>BTW.... here are my notes on OS65D <a href="diskformat.html">disk format, directories, and source files</a></p>
+<h2 id="features">Features</h2>
+<p>The help instructions and example usage are listed below. This is a command line utility controlled with either long or short option flags.</p>
+<p>The key options are the -e|--examine to examine track/sector information, -d|--directory to display the disk directory, -c|--content to display content and -o|--output to write image to a file. The other options modify the behaviour of these key options.</p>
+<p>The examine option can be used to explore the disk image. Examine will display the track/sector information and &quot;guess&quot; at what type of content is on the track. The &quot;guess&quot; algorithms are not sophisticated so do not expect perfection. Adding --verbose to the examine option will display a bit of the track data in hex.</p>
+<pre><code>Track 1  Offset: 000f00  Size: 0x0f00 bytes (3840)
+  Header : 0x000f0b            43 57 01 58 
+  Sector1: 0x000f0f Pages: 5   76 01 05....47 53 - MACHINE CODE
+  Sector2: 0x001414 Pages: 5   76 02 05....47 53 - MACHINE CODE</code></pre>
+<p>Tracks can be specified as:</p>
+<pre><code>+ single track:     &quot;-t 9&quot; or &quot;--track 9&quot;
++ range of tracks:  &quot;-t 0-8&quot; or &quot;--track 0-8&quot;
++ entire disk:      &quot;-t all&quot; or &quot;-t 99&quot; or &quot;--track all&quot; </code></pre>
+<p>The content option will display the track/sector data in various formats. Hex data is the default. If the track is Basic you can use &quot;--list basic&quot; to see the contents as source code. If the track is assembler source code you can see the content with &quot;--list asm&quot;. If the source code is saved across multiple tracks, both these format options will try to load the entire source before displaying results. Be careful using these options on non-source code as the results will be gibberish. The &quot;--list raw&quot; option will display the entire track including the track/sector header bytes in colour. Assuming you are on a ANSI terminal the track header bytes will be green, the sector head will be yellow, the sector footer will be cyan. Some disk images have a few &quot;extra mystery&quot; bytes, these are coloured red.</p>
+<p>When writing binary files all the &quot;mystery&quot; characters are removed so that the image is a clean OS65D image. All trackes are padded to be 15 pages long (3840 bytes) and this include all the header format bytes. The OS65D manual says the max sector size is 12 pages. But I noticed many images are padded to be 15 pages. The images are padded with 0xea which is the 6502 NOP instruction. I used this as it is easier to spot than 0x00 which seem to be the favorite default padding byte.</p>
+<p>To convert and write the image as binary:</p>
+<pre><code>osidd -o outputfilename -b diskimagefile
+osidd --output outputfilename --binary diskimagefile</code></pre>
+<p>.<br />.<br />Hex ascii files are also padded to 15 pages with 0xea bytes. They have a blank line between each sector.</p>
+<p>To convert and write the image as ascii hex:</p>
+<pre><code>osidd -o outputfilename -a diskimagefile
+osidd --output outputfilename --ascii dis</code></pre>
+<p>BTW: the file will have unix end-of-line characters, Line Feed &quot;0x0a&quot;</p>
+<h2 id="installation">Installation</h2>
+<p>The program was developed on Mint Linux and should compile on any distro with gcc installed. There only dependancies are the standard libraries. A simple &quot;make&quot; should build the program. &quot;make install&quot; will copy the binary to the users $HOME/bin directory.</p>
+<p>As for Windows.... this code will compiled and run using Cygwin. You will need to make sure you have &quot;gcc&quot; and &quot;make&quot; installed to compile. I found that the version of gcc on cygwin was different than on Linux and it gave me extra warnings (I did not fix these, sorry). The code still compiled and worked.</p>
+<p>The code is available on <a href="https://github.com/lockettnb/osi_disk_util"> Github</a></p>
+<h2 id="osi-disk-dump-help-instructions">OSI Disk Dump Help Instructions</h2>
+<pre><code>  osidd - OSI Disk Dump
+    +scan OSI disk image for valid tracks/sector format
+    +convert disk image from ascii to binary
+    +display directory information
+    +display content from tracks
+
+
+ Usage osidd [options] FILE 
+   -e   --examine      : examine all tracks for valid headers/sectors
+   -t   --track  n     : track to examine, can be a range 0-4 or all (default)
+
+   -d   --directory    : display directory listing from disk image
+
+   -o   --output fname : write image to output file
+   -a   --ascii        : write disk image in ascii hex 
+   -b   --binary       : write disk image in binary (default output format)
+
+   -c   --content      : display content of track/sector 
+   -l   --list type    : list track as basic, asm, hex or raw
+        --nocolour     : turn off colour highlight for raw output
+
+   -v,  --verbose      : enable verbose output
+        --help         : display help and exit
+        --version      : print version information and exit
+
+ When displaying content the application will guess the format type.
+ The format will be one of Basic, Assembler, Data (hex).
+ This guess can be overridden by the list option. Overriding the with 
+ the wrong format can icreate some very messy output.
+
+ The raw format will display the entire track including format bytes with
+ colour highlights; green=track header, yellow=sector header, 
+ cyan=sector footer, red=filler bytes that are not part of the OS65D format</code></pre>
+<h2 id="example-1-directory-listing">Example 1: Directory Listing</h2>
+<pre><code>john@xtrail$ osidd -d micro.img 
+
+OS-65D VERSION 3.2
+ -- DIRECTORY --
+
+FILE NAME    TRACK RANGE
+------------------------
+OS65D3      0 - 8
+BEXEC*      9 - 9
+CHANGE      10 - 10
+CREATE      13 - 14
+DELETE      15 - 15
+DIR         16 - 16
+DIRSRT      17 - 17
+RANLST      18 - 19
+RENAME      20 - 20
+SECDIR      21 - 21
+SEQLST      22 - 23
+TRACE       24 - 24
+ZERO        25 - 26
+DUMP        27 - 32
+EXMON       33 - 37
+MON         38 - 41
+WORK1       42 - 45
+ROM         46 - 48
+MAYOR       49 - 51
+TRACE$      52 - 52
+FORTH       53 - 57
+BUFFER      58 - 61
+MON2        62 - 67
+
+ 41 ENTRIES FREE OUT OF 64</code></pre>
+<h2 id="example-2-examine-several-tracks">Example 2: Examine Several Tracks</h2>
+<pre><code>john@xtrail$ osidd -e -t 0-4 disk.img 
+Track 0  Offset: 000000  Size: 0x0f00 bytes (3840)
+  Header 0x000000              22 00  08
+  Load Address: 0x2200  Pages: 8
+
+Track 1  Offset: 000f00  Size: 0x0f00 bytes (3840)
+  Header : 0x000f0b            43 57 01 58 
+  Sector1: 0x000f0f Pages: 5   76 01 05....47 53 - MACHINE CODE
+  Sector2: 0x001414 Pages: 5   76 02 05....47 53 - MACHINE CODE
+
+Track 2  Offset: 001e00  Size: 0x0f00 bytes (3840)
+  Header : 0x001e0c            43 57 02 58 
+  Sector1: 0x001e10 Pages:11   76 01 0b....47 53 - MACHINE CODE
+
+Track 3  Offset: 002d00  Size: 0x0f00 bytes (3840)
+  Header : 0x002d0b            43 57 03 58 
+  Sector1: 0x002d0f Pages:11   76 01 0b....47 53 - MACHINE CODE
+
+Track 4  Offset: 003c00  Size: 0x0f00 bytes (3840)
+  Header : 0x003c0b            43 57 04 58 
+  Sector1: 0x003c10 Pages:11   76 01 0b....47 53 - MACHINE CODE</code></pre>
+<h2 id="example-3-examine-track-with-verbose-output">Example 3: Examine Track with Verbose Output</h2>
+<pre><code>john@xtrail$ osidd -ev -t 10 disk.img 
+Disk Image: 295680 bytes (0x048300)
+
+Track 10  Offset: 009600  Size: 0x0f00 bytes (3840)
+  Header : 0x00960b            43 57 10 58 
+  Sector1: 0x00960f Pages:11   76 01 0b....47 53 - BASIC
+
+  Data: Sector 1
+000000  7f 31 2a 34 01 00 8d 31 05 00 44 56 ab 31 3a 20   |.1*4...1..DV.1: |
+000010  88 32 30 00 a6 31 0a 00 84 20 22 44 45 56 49 43   |.20..1... &quot;DEVIC|
+000020  45 20 4e 55 4d 42 45 52 22 3b 44 56 00 ac 31 14   |E NUMBER&quot;;DV..1.|
+000030  00 8e 00 b5 31 1e 00 4e 46 ab 30 00 c2 31 28 00   |....1..NF.0..1(.|</code></pre>
+<h2 id="example-4-examine-track-content-as-hex-data">Example 4: Examine Track Content (as hex data)</h2>
+<pre><code>john@xtrail$ osidd -c -t 10 disk.img 
+
+Track10:  Sector1: Pages: 0x0b (11)  BASIC
+003179  7f 31 2a 34 01 00 8d 31 05 00 44 56 ab 31 3a 20   |.1*4...1..DV.1: |
+003189  88 32 30 00 a6 31 0a 00 84 20 22 44 45 56 49 43   |.20..1... &quot;DEVIC|
+003199  45 20 4e 55 4d 42 45 52 22 3b 44 56 00 ac 31 14   |E NUMBER&quot;;DV..1.|
+0031a9  00 8e 00 b5 31 1e 00 4e 46 ab 30 00 c2 31 28 00   |....1..NF.0..1(.|
+0031b9  50 4e ab 31 31 38 39 37 00 e6 31 32 00 95 20 9e   |PN.11897..12.. .|
+0031c9  41 28 58 29 ab 31 30 a5 ae 28 58 a6 31 36 29 a3   |A(X).10..(X.16).|
+0031d9  58 a4 31 36 a5 ae 28 58 a6 31 36 29 00 ec 31 10   |X.16..(X.16)..1.|
+0031e9  27 8e 00 08 32 1a 27 8e 20 50 52 49 4e 54 20 41   |&#39;...2.&#39;. PRINT A|
+0031f9  20 44 49 52 45 43 54 4f 52 59 20 4f 55 54 00 0e   | DIRECTORY OUT..|
+003209  32 24 27 8e 00 3a 32 2e 27 97 3a 97 3a 97 3a 97   |2$&#39;..:2.&#39;.:.:.:.|
+003219  20 23 44 56 20 3a 97 20 23 44 56 2c 22 4f 53 2d   | #DV :. #DV,&quot;OS-|
+003229  36 35 44 20 56 45 52 53 49 4f 4e 20 33 2e 32 22   |65D VERSION 3.2&quot;|
+003239  00 5f 32 33 27 97 20 23 44 56 2c 22 20 2d 2d 20   |._23&#39;. #DV,&quot; -- |
+003249  44 49 52 45 43 54 4f 52 59 20 2d 2d 22 20 3a 20   |DIRECTORY --&quot; : |
+003259  97 20 23 44 56 00 84 32 38 27 97 20 23 44 56 2c   |. #DV..28&#39;. #DV,|
+003269  22 46 49 4c 45 20 4e 41 4d 45 20 20 20 20 54 52   |&quot;FILE NAME    TR|
+003279  41 43 4b 20 52 41 4e 47 45 22 00 a9 32 42 27 97   |ACK RANGE&quot;..2B&#39;.|
+003289  20 23 44 56 2c 22 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d   | #DV,&quot;----------|
+003299  2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 2d 22 00   |--------------&quot;.|
+0032a9  c2 32 4c 27 94 20 21 20 22 43 41 4c 4c 20 32 45   |.2L&#39;. ! &quot;CALL 2E|&quot;</code></pre>
+<h2 id="example-5-examine-track-content-as-basic-source-code">Example 5: Examine Track Content (as basic source code)</h2>
+<pre><code>john@xtrail ~/src/osi $ osidd -c -t 10 -l basic  disk.img 
+&lt;317f&gt;  Start Address
+&lt;318d&gt;        5 DV=1: GOTO20
+&lt;31a6&gt;       10 INPUT &quot;DEVICE NUMBER&quot;;DV
+&lt;31ac&gt;       20 REM
+&lt;31b5&gt;       30 NF=0
+&lt;31c2&gt;       40 PN=11897
+&lt;31e6&gt;       50 DEF FNA(X)=10*INT(X/16)+X-16*INT(X/16)
+&lt;31ec&gt;    10000 REM
+&lt;3208&gt;    10010 REM PRINT A DIRECTORY OUT
+&lt;320e&gt;    10020 REM
+&lt;323a&gt;    10030 PRINT:PRINT:PRINT:PRINT #DV :PRINT #DV,&quot;OS-65D VERSION 3.2&quot;
+&lt;325f&gt;    10035 PRINT #DV,&quot; -- DIRECTORY --&quot; : PRINT #DV
+&lt;3284&gt;    10040 PRINT #DV,&quot;FILE NAME    TRACK RANGE&quot;
+&lt;32a9&gt;    10050 PRINT #DV,&quot;------------------------&quot;
+&lt;32c2&gt;    10060 SAVE ! &quot;CALL 2E79=08,1&quot;
+&lt;32ce&gt;    10070 GOSUB 11000
+&lt;32e7&gt;    10080 SAVE ! &quot;CALL 2E79=08,2&quot;
+&lt;32f3&gt;    10090 GOSUB 11000
+&lt;3329&gt;    10130 PRINT #DV : PRINT #DV,NF;&quot;ENTRIES FREE OUT OF 64&quot; : PRINT #DV
+&lt;332f&gt;    10140 END
+&lt;3335&gt;    11000 REM
+&lt;3364&gt;    11010 REM READ DIRECTORY OUT OF BUFFER INTO ARRAYS
+&lt;336a&gt;    11020 REM
+&lt;3382&gt;    11040 FOR I=PN TO PN+248 STEP 8
+&lt;33a4&gt;    11050 IF PEEK(I)=35 THEN NF=NF+1 : GOTO 11130
+&lt;33ae&gt;    11060 N$=&quot;&quot;
+&lt;33be&gt;    11070 FOR J=I TO I+5
+&lt;33d0&gt;    11080 N$=N$+CHR$(PEEK(J))
+&lt;33d8&gt;    11090 NEXT J
+&lt;33ff&gt;    11100 PRINT #DV,N$;TAB(12);FNA(PEEK(I+6));TAB(16);&quot;-&quot;;
+&lt;3419&gt;    11110 PRINT #DV,TAB(17);FNA(PEEK(I+7))
+&lt;3421&gt;    11130 NEXT I
+&lt;3427&gt;    11140 RETURN
+&lt;342a&gt;  End Address</code></pre>
+<h2 id="example-6-examine-track-content-as-raw-bytes">Example 6: Examine Track Content (as raw bytes)</h2>
+<p>Track Header = Green S ector Header = Yellow S ector Footer = Cyan Mystery Bytes = Red</p>
+<p>Mystery bytes seem to be spurious bytes after the index hole and before the track header and sometime between sectors.</p>
+<img src="raw_content.png" width="500" height="750">
+<hr />
+<p>2016/01/02</p>
+<p><a href="../gbook.html">Guestbook and Comments</a></p>
+<p><a href="../index.html">Home</a></p>
+</body>
+</html>

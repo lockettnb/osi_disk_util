@@ -1,0 +1,5 @@
+*.o
+bak
+dimages
+*.img
+foo*

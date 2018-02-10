@@ -102,12 +102,12 @@ char *tail;
 void chomp(char *s) 
 {
 char *tail;
- printf("chomp length =%i ", strlen(s));
+ printf("chomp length =%i ", (int) strlen(s));
 
     tail = s + strlen(s);
     while(iscntrl(*--tail) && tail>=s);
     *(tail+1) = '\0';
- printf("chomp length =%i\n ", strlen(s));
+ printf("chomp length =%i\n ", (int) strlen(s));
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -24,7 +24,7 @@ char *program_name;
 // Option Flags
 int examine = FALSE;
 int directory = FALSE;
-int content=FALSE;
+int content = FALSE;
 int ascii   = FALSE;
 int binary  = TRUE;
 int nocolour= FALSE;
@@ -36,7 +36,7 @@ int debug = FALSE;
 
 struct option long_options[] =
      {
-       {"examine",  no_argument,        0, 'e'},
+       {"examine",  no_argument,         0, 'e'},
        {"track",    required_argument,   0, 't'},
 
        {"directory", no_argument,       0, 'd'},
@@ -46,7 +46,7 @@ struct option long_options[] =
        {"binary",   no_argument,        0, 'b'},
 
        {"content",  no_argument,        0, 'c'},
-       {"list",    required_argument,  0, 'l'},
+       {"list",    required_argument,   0, 'l'},
 
        {"verbose",  no_argument,        0, 'v'},
        {"nocolor",  no_argument, &nocolour,    TRUE},
@@ -103,23 +103,27 @@ char *instructions[] = {
 int main (int argc, char **argv)
 {
 int optc, option_index;     // option processing
+char xfrom[16];             // track option processing 
+char xto[16];               // track option processing 
+char *token;                // track option processing 
+const char delm[2] = "-";   // track option processing
+
 char in_track[MAXOPSIZE];   // track number from options (set default to all)
 char ofile[MAXOPSIZE];      // output file name from options
 char ltype[MAXOPSIZE];      // list type from options
+
 int ctype=HEX;              // content type default it to data(hex) 
-int disksize;               // total number of bytes in disk image
+int fromtk, totk;           // track range from...to
+
 uint8_t disk[FULL_DISK];    // buffer for disk data
 struct  index_t index[77];  // track/sector/page index built during load process
-struct dir_t dir[64];
+struct dir_t dir[64];       // directory data read during disk image load
+int disksize;               // total number of bytes in disk image
 
 // misc general variables
 int i = 0;                  // index
 int dirty=FALSE;            // used if no options provided to default something 
-int fromtk, totk;           // tracks
-char xfrom[16];
-char xto[16];
-char *token;
-const char delm[2] = "-";
+
 
 program_name=argv[0];
 if (help || version) inst(instructions,0);
