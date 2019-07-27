@@ -471,7 +471,8 @@ int i;
     if( index[sk_track].sector[sk_sector] == 0) {
         fprintf(stderr, "%s:trying to load non-existing track/sector=%i/%i\n",\
                 program_name, sk_track, sk_sector);
-        exit(1);
+        
+        return FAIL;
     }
 
     // point the disk head to first byte of data (after the sector header)
