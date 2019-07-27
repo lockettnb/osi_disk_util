@@ -400,7 +400,7 @@ int idx=0;
 
     for(t=1; t<=2; t++) {
         if(loadsector(disk, index, sector_buf, DIRTRACK, t) == FAIL) {
-            fprintf(stderr, "%s: seek error. Cannot find track %i\n", program_name, DIRTRACK);
+            fprintf(stderr, "%s: seek error: cannot find track %i, directory not loaded\n", program_name, DIRTRACK);
             exit(1);
         }
 //         if(debug) hex(sector_buf, 0, 0, 256);
