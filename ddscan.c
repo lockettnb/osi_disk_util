@@ -231,7 +231,6 @@ if ((argc-optind) == 0) {                       // no arguments
 
 // ok, finally done processing options and stuff load the disk image
 disksize=load_image(argv[optind], disk, index);     //process each file
-load_directory(disk, index, dir);
 
 verbose_print("Disk Image: %i bytes (0x%06x)\n\n", disksize, disksize);
 
@@ -270,7 +269,10 @@ if( (ofile[1] != '\0')) {
      dirty=TRUE;
 }
 
-if(directory || !dirty) print_directory(dir);
+if (directory || !dirty) {
+    load_directory(disk, index, dir);
+    print_directory(dir);
+}
 
 exit(SUCCESS);
 }   /* main */
