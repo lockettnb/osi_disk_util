@@ -89,8 +89,8 @@ struct basic_tokens {
 
 
 // OSI Utilities
-int  load_image(char *fname, uint8_t disk[], struct index_t index[]);
-void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[]);
+int  load_image(char *fname, uint8_t disk[], long disk_size, struct index_t index[], long index_size);
+void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[], long dir_size);
 void write_image(uint8_t disk[], struct index_t index[], char *fname);
 void examine_track(uint8_t disk[], int disksize, struct index_t index[], int track);
 void print_track(uint8_t disk[], struct index_t index[], int track);

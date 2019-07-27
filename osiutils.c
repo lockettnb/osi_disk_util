@@ -129,7 +129,7 @@ void get_content_type(uint8_t disk[], struct index_t index[], int track, int sec
 //  2015/12/18 created
 //  2015/12/21 added creation of index and dir structures
 //
-int load_image(char *fname, uint8_t disk[], struct index_t index[])
+int load_image(char *fname, uint8_t disk[], long disk_size, struct index_t index[], long index_size)
 {
 FILE *fp;
 int filesize;       // size of the file we are trying to load
@@ -160,8 +160,8 @@ int tk;
     //     2   -end of sector mark $47, $53
     //      next sector or undefined filler data
 
-    memset(disk,  '\0', sizeof(disk));
-    memset(index, '\0', sizeof(index));
+    memset(disk,  '\0', disk_size);
+    memset(index, '\0', index_size);
 
     if((fp=fopen(fname, "r")) == NULL) {
         fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);
@@ -388,7 +388,7 @@ char ctype[32];
 // -----------------------------------------------------------
 // directory listing 
 //  2016/01/01 created
-void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[])
+void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[], long dir_size)
 {
 uint8_t sector_buf[256];        // directory sectors are one page long
 char name[8];
@@ -396,7 +396,7 @@ int start, end;
 int i,j,t;
 int idx=0;
 
-    memset(dir, 0, sizeof(dir));
+    memset(dir, 0, dir_size);
 
     for(t=1; t<=2; t++) {
         if(loadsector(disk, index, sector_buf, DIRTRACK, t) == FAIL) {
