@@ -214,7 +214,7 @@ else {
         }
 
     printf("Usage: %s [OPTION]... [FILE]...\n", program_name);
-    while (*iptr != NULL_CHAR)
+    while (*iptr)
       puts(*iptr++);
     }
 

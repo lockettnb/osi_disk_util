@@ -94,7 +94,7 @@ char *instructions[] = {
     " cyan=sector footer, red=filler bytes that are not part of the OS65D format",
     " ",
     "                                                     john 2016/01",
-    NULL_CHAR
+    NULL
     };
 
 

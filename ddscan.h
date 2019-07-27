@@ -4,7 +4,6 @@
 */
 
 #define VERSION "0.1"
-#define NULL_CHAR '\0'
 #define TRUE 1
 #define FALSE 0
 #define SUCCESS 0

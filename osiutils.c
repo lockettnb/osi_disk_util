@@ -414,7 +414,7 @@ int idx=0;
             } else {
                 for(j=0; j<6; j++) 
                     name[j]=sector_buf[i+j];
-                name[6]= NULL_CHAR;
+                name[6]= '\0';
                 start=bcdtobin( sector_buf[i+6] );
                 end=bcdtobin(sector_buf[i+7]);
                 ddebug_print("%i: %s\t\t%i - %i\n", idx, name, start, end);
