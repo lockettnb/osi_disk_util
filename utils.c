@@ -168,7 +168,8 @@ int hexbin(int hi, int low) {
 // hex print 
 //  2015/12/18 created
 //
-void hex(uint8_t b[], int offset, int addr, int count) {
+void hex(uint8_t b[], int offset, int addr, int count) 
+{
 int i, j;
 int start, end;
 int start_row, end_row;

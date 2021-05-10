@@ -5,13 +5,14 @@
   <meta http-equiv="Content-Style-Type" content="text/css" />
   <meta name="generator" content="pandoc" />
   <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
   <link rel="stylesheet" href="md.css" type="text/css" />
 </head>
 <body>
 <h1 id="collection-of-notes-on-os65d-disk-format">Collection of Notes on OS65D Disk Format</h1>
 <h2 id="from-c3serial-disk-dump-program">From C3Serial Disk Dump Program</h2>
 <pre><code>;Track 0 format
-;10 millisecond delay after index hole
+;1 millisecond delay after index hole
 ;0,1 load address of the track in hi,lo form
 ;2, page count of how much data is written on track 0, usually 8
 ;3+ data
@@ -91,7 +92,7 @@ xx01 57     second byte of track header
 xx02 01     track number in BCD format
 xx03 05     number of pages</code></pre>
 <p>Here is an example of the raw disk data showing the first three sectors of track 8:</p>
-<img src="raw_content.png" />
+<p><img src="raw_content.png" /></p>
 <h2 id="directory-listings">Directory Listings</h2>
 <p>Track 8 sectors 1 and 2 hold the directory listing. The format is very simple</p>
 <pre><code>+ six bytes for name followed by

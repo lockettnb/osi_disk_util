@@ -5,6 +5,7 @@
   <meta http-equiv="Content-Style-Type" content="text/css" />
   <meta name="generator" content="pandoc" />
   <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
   <link rel="stylesheet" href="md.css" type="text/css" />
 </head>
 <body>
@@ -44,31 +45,31 @@ osidd --output outputfilename --ascii dis</code></pre>
     +convert disk image from ascii to binary
     +display directory information
     +display content from tracks
-
-
+ 
+ 
  Usage osidd [options] FILE 
    -e   --examine      : examine all tracks for valid headers/sectors
    -t   --track  n     : track to examine, can be a range 0-4 or all (default)
-
+ 
    -d   --directory    : display directory listing from disk image
-
+ 
    -o   --output fname : write image to output file
    -a   --ascii        : write disk image in ascii hex 
    -b   --binary       : write disk image in binary (default output format)
-
+ 
    -c   --content      : display content of track/sector 
    -l   --list type    : list track as basic, asm, hex or raw
         --nocolour     : turn off colour highlight for raw output
-
+ 
    -v,  --verbose      : enable verbose output
         --help         : display help and exit
         --version      : print version information and exit
-
+ 
  When displaying content the application will guess the format type.
  The format will be one of Basic, Assembler, Data (hex).
  This guess can be overridden by the list option. Overriding the with 
  the wrong format can icreate some very messy output.
-
+ 
  The raw format will display the entire track including format bytes with
  colour highlights; green=track header, yellow=sector header, 
  cyan=sector footer, red=filler bytes that are not part of the OS65D format</code></pre>
@@ -203,7 +204,7 @@ Track10:  Sector1: Pages: 0x0b (11)  BASIC
 <h2 id="example-6-examine-track-content-as-raw-bytes">Example 6: Examine Track Content (as raw bytes)</h2>
 <p>Track Header = Green S ector Header = Yellow S ector Footer = Cyan Mystery Bytes = Red</p>
 <p>Mystery bytes seem to be spurious bytes after the index hole and before the track header and sometime between sectors.</p>
-<img src="raw_content.png" width="500" height="750">
+<p><img src="raw_content.png" width="500" height="750"></p>
 <hr />
 <p>2016/01/02</p>
 <p><a href="../gbook.html">Guestbook and Comments</a></p>

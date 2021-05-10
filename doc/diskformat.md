@@ -6,7 +6,7 @@ Collection of Notes on OS65D Disk Format
 From C3Serial Disk Dump Program
 -------------------------------
     ;Track 0 format
-    ;10 millisecond delay after index hole
+    ;1 millisecond delay after index hole
     ;0,1 load address of the track in hi,lo form
     ;2, page count of how much data is written on track 0, usually 8
     ;3+ data
