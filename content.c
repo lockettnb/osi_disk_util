@@ -521,7 +521,7 @@ int dh;                     // virtual disk head
     // TRACK ZERO
     if(track ==0) {
         // write header
-        colour(GREEN);
+       colour(GREEN);
         cout(stdout, disk[0], &ccount);
         cout(stdout, disk[1], &ccount);
         cout(stdout, disk[2], &ccount);

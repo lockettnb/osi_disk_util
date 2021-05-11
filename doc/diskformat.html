@@ -1,0 +1,197 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <link rel="stylesheet" href="md.css" type="text/css" />
+</head>
+<body>
+<h1 id="collection-of-notes-on-os65d-disk-format">Collection of Notes on OS65D Disk Format</h1>
+<h2 id="from-c3serial-disk-dump-program">From C3Serial Disk Dump Program</h2>
+<pre><code>;Track 0 format
+;1 millisecond delay after index hole
+;0,1 load address of the track in hi,lo form
+;2, page count of how much data is written on track 0, usually 8
+;3+ data
+
+;Track 1-n Format
+;0,1 -a 2 byte start code $43, $57
+;2,  -BCD track number
+;3,  -track type code (always $58)
+
+; sector data
+;1,  -sector start code $76
+;1,  -sector number in binary
+;1   -sector length (#pages) in binary
+;x   -sector data (1-8/12 pages)
+;2   -end of sector mark $47, $53
+; next sector
+
+;track 1-76 format
+; 8E1 
+; 0x80, tklo, tkhi, &lt;reset ACIA to 8N1&gt; 0x1F ... data ...</code></pre>
+<h2 id="from-os65d-tutorial-document-page-57">From OS65D Tutorial Document (Page 57)</h2>
+<ul>
+<li>Tracks start 1 msec after the index hole</li>
+<li>Track zero has a unique header read by choosing &quot;D&quot;</li>
+<li>Track zero header has three bytes
+<ul>
+<li>load address hi byte normally=0x22</li>
+<li>load address lo byte normally=0x00</li>
+<li>number of pages on track zero normally=0x08</li>
+</ul></li>
+<li>The rest of the tracks have a four byte header
+<ul>
+<li>byte one $43</li>
+<li>byte two $57</li>
+<li>track number as two digit BCD number</li>
+<li>byte four $58</li>
+</ul></li>
+</ul>
+<h2 id="from-review-of-disk-images">From Review of Disk Images</h2>
+<p>For this particular disk image Track 1 started at byte offset $0f00.</p>
+<pre><code>------------------------------------------- Track Header
+0f00 43     first byte of track header
+0f01 57     second byte of track header
+0f02 01     track number in BCD format
+0f03 05     number of pages
+------------------------------------------- Sector 1
+0f04 76     start of sector header
+0f05 01     sector number in binary
+0f06 05     number of pages
+0f07 xx     first byte of data 
+0f08 xx
+.    xx       0f08 +(256*pages)-1 = 1406
+.    xx       0f08 + 04ff        = 1406
+.    xx
+1406 xx     last byte of data
+1407 47     end of sector marker 1st byte 
+1408 52     end of sector marker 2nd byte
+------------------------------------------- Sector 2
+1409 76     start of sector header
+140a 01     sector number in binary
+140b 05     number of pages
+140c xx     first byte of data 
+.    xx       0f08 +(256*pages)-1 = 1406
+.    xx       0f08 + 04ff        = 1406
+.    xx
+190b xx     last byte of data
+190c 47     end of sector marker 1st byte 
+190d 52     end of sector marker 2nd byte
+-------------------------------------------
+190a 00
+.    00
+.    00     undefine data at end of the track 
+.    00
+------------------------------------------- Next Track 
+xx00 43     first byte of track header
+xx01 57     second byte of track header
+xx02 01     track number in BCD format
+xx03 05     number of pages</code></pre>
+<p>Here is an example of the raw disk data showing the first three sectors of track 8:</p>
+<p><img src="raw_content.png" /></p>
+<h2 id="directory-listings">Directory Listings</h2>
+<p>Track 8 sectors 1 and 2 hold the directory listing. The format is very simple</p>
+<pre><code>+ six bytes for name followed by
++ two bytes for start and end track
++ sector 1 has 32 entries
++ secrot 2 as 32 entries
++ blank entries have a # (0x23) at start of name</code></pre>
+<p>Code extract from the DIR command</p>
+<pre><code> 10030 PRINT #DV : PRINT #DV,&quot;OS-65D VERSION 3.2  NMHZ&quot;
+ 10035 PRINT #DV,&quot; -- DIRECTORY --&quot; : PRINT #DV
+ 10040 PRINT #DV,&quot;FILE NAME    TRACK RANGE&quot;
+ 10050 PRINT #DV,&quot;------------------------&quot;
+
++load first sector into memory
+ 10060 DISK ! &quot;CALL 2E79=08,1&quot;
+ 10070 GOSUB 11000
++load second sector into memory
+ 10080 DISK ! &quot;CALL 2E79=08,2&quot;
+ 10090 GOSUB 11000
++print number of free (empty) directory entries
+ 10130 PRINT #DV : PRINT #DV,NF;&quot;ENTRIES FREE OUT OF 64&quot; : PRINT #DV
+ 10140 END
+
+ 11010 REM READ DIRECTORY OUT OF BUFFER INTO ARRAYS
++ PN points to memory location 11897 (0x2e79)
+ 11040 FOR I=PN TO PN+248 STEP 8
+
++if char is # then this is a free entry
+ 11050 IF PEEK(I)=35 THEN NF=NF+1 : GOTO 11130
+
++read name from first six bytes
+ 11060 N$=&quot;&quot;
+ 11070 FOR J=I TO I+5
+ 11080 N$=N$+CHR$(PEEK(J))
+ 11090 NEXT J
++print name and start track (7th byte) and end track (8th byte)
+ 11100 PRINT #DV,N$;TAB(12);FNA(PEEK(I+6));TAB(16);&quot;-&quot;;
+ 11110 PRINT #DV,TAB(17);FNA(PEEK(I+7))
+ 11130 NEXT I
+ 11140 RETURN</code></pre>
+<p>Here is a sample directory listing with three files:</p>
+<pre><code>OS-65D VERSION 3.2
+ -- DIRECTORY --
+
+FILE NAME    TRACK RANGE
+------------------------
+OS65D3      0 - 8
+BEXEC*      9 - 9
+DIR         10 - 10</code></pre>
+<p>And, here is the data on track 8 for that listing:</p>
+<pre><code>Track8:  Sector1: Pages: 0x01 (1)  Unknown
+003179  4f 53 36 35 44 33 00 08 42 45 58 45 43 2a 09 09   |OS65D3..BEXEC*..|
+003189  44 49 52 20 20 20 10 10 23 23 23 23 23 23 00 00   |DIR   ..######..|
+003199  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+0031a9  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+0031b9  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+0031c9  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+0031d9  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+0031e9  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+0031f9  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+003209  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+003219  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+003229  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+003239  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+003249  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+003259  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|
+003269  23 23 23 23 23 23 00 00 23 23 23 23 23 23 00 00   |######..######..|</code></pre>
+<h2 id="basic-format">Basic Format</h2>
+<p>Basic files are loaded starting at memory $3179. The file includes a start address, end address and number of tracks. In the example below: start=$317f end=$342a tracks=01 followed by NULL.</p>
+<pre><code>003179  7f 31 2a 34 01 00 8d 31 05 00 44 56 ab 31 3a 20   |.1*4...1..DV.1: |
+003189  88 32 30 00 a6 31 0a 00 84 20 22 44 45 56 49 43   |.20..1... .DEVIC|</code></pre>
+<p>The first line of the source is a at $317f. Each line is has a pointer to the next line, line number , line text or tokens. All the basic key words are saved a tokens value (<span class="math">80 − </span>c3). In the example below we see the first line points to the second line at $318d. It is line number $0005 and finishes with a NULL. The second line is line 10 and starts with a token $84 which is the INPUT keyword.</p>
+<pre><code> 8d 31 05 00 44 56 ab 31 3a 20 88 32 30 00
+ ----- -----                            --
+ |     line 5                          eol
+ |
+ ---&gt;a6 31 0a 00 84 20 22 44 45 56 49 43 45 20 ...3b 44 56 00
+      ----- ----                                           --
+            line 10                                        eol</code></pre>
+<h2 id="assembler-source-files">Assembler Source Files</h2>
+<p>Assembler files are loaded starting at memory $3179. The file includes a start address, end address and number of tracks. In the example below: start=$317e end=$3976 tracks=01.</p>
+<pre><code>000000  7e 31 76 39 01 0a 00 3b 0d 14 00 41 43 49 41 31   |~1v9...;...ACIA1|
+000010  20 fd 3d 24 43 46 30 ff 20 ff 43 33 41 20 f7 31   | .=$CF0. .C3A .1|
+000020  32 30 ff 20 42 41 55 44 0d 1e 00 41 43 49 41 32   |20. BAUD...ACIA2|
+000030  20 fd 3d 24 43 46 30 32 20 ff 43 32 4f 45 4d 20   | .=$CF02 .C2OEM |</code></pre>
+<p>Each source line is a line number followed by text upto a carraige return &lt;0x0d&gt;. Repeated characters are represented by negitive numbers (-1 &lt;0xff&gt; for repeat one, -2 &lt;0xfe&gt; for repeat two, etc). Weird stuff.</p>
+<pre><code>line 10
+      ;  &lt;cr&gt;
+0a 00 3b 0d
+
+line 20
+       ACIA1&lt;sp&gt;&lt;repeat 3&gt;=$CFO&lt;repeat 1&gt;&lt;sp&gt;&lt;repeat 1&gt;C3A&lt;sp&gt;&lt;repeat 9&gt;
+14 00 41 43 49 41 31 20 fd 3d 24 43 46 30 ff 20 ff 43 33 41 20 f7
+
+   120&lt;repeat 1&gt;&lt;sp&gt;BAUD&lt;cr&gt;
+   31 32 30 ff 20 42 41 55 44 0d</code></pre>
+<hr />
+<p>2015/12/05</p>
+<p><a href="../gbook.html">Guestbook and Comments</a></p>
+<p><a href="../index.html">Back</a></p>
+</body>
+</html>

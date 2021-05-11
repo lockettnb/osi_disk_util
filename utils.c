@@ -102,12 +102,16 @@ char *tail;
 void chomp(char *s) 
 {
 char *tail;
+
  printf("chomp length =%lu ", strlen(s));
+
 
     tail = s + strlen(s);
     while(iscntrl(*--tail) && tail>=s);
     *(tail+1) = '\0';
+
  printf("chomp length =%lu\n ", strlen(s));
+
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -168,7 +172,8 @@ int hexbin(int hi, int low) {
 // hex print 
 //  2015/12/18 created
 //
-void hex(uint8_t b[], int offset, int addr, int count) {
+void hex(uint8_t b[], int offset, int addr, int count) 
+{
 int i, j;
 int start, end;
 int start_row, end_row;

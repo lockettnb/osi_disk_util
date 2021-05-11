@@ -160,8 +160,10 @@ int tk;
     //     2   -end of sector mark $47, $53
     //      next sector or undefined filler data
 
+
     memset(disk,  '\0', disk_size);
     memset(index, '\0', index_size);
+
 
     if((fp=fopen(fname, "r")) == NULL) {
         fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);

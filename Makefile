@@ -24,7 +24,7 @@ osidd: ddscan.c ddscan.h $(OBJS)
 	$(CC) -o osidd $(CFLAGS) $(OBJS)
 
 clean:
-	rm -rf $(BINS) $(OBJS)	
+	rm -rf $(BINS) $(OBJS)
 
 install:
 	cp $(BINS) $(HOME)/bin/
