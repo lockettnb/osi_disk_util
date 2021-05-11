@@ -102,12 +102,16 @@ char *tail;
 void chomp(char *s) 
 {
 char *tail;
- printf("chomp length =%i ", (int) strlen(s));
+
+ printf("chomp length =%lu ", strlen(s));
+
 
     tail = s + strlen(s);
     while(iscntrl(*--tail) && tail>=s);
     *(tail+1) = '\0';
- printf("chomp length =%i\n ", (int) strlen(s));
+
+ printf("chomp length =%lu\n ", strlen(s));
+
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -215,7 +219,7 @@ else {
         }
 
     printf("Usage: %s [OPTION]... [FILE]...\n", program_name);
-    while (*iptr != NULL_CHAR)
+    while (*iptr)
       puts(*iptr++);
     }
 

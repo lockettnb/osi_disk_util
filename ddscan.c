@@ -94,7 +94,7 @@ char *instructions[] = {
     " cyan=sector footer, red=filler bytes that are not part of the OS65D format",
     " ",
     "                                                     john 2016/01",
-    NULL_CHAR
+    NULL
     };
 
 
@@ -234,8 +234,7 @@ if ((argc-optind) == 0) {                       // no arguments
 }
 
 // ok, finally done processing options and stuff load the disk image
-disksize=load_image(argv[optind], disk, index);     //process each file
-load_directory(disk, index, dir);
+disksize=load_image(argv[optind], disk, sizeof(disk), index, sizeof(index));     //process each file
 
 verbose_print("Disk Image: %i bytes (0x%06x)\n\n", disksize, disksize);
 
@@ -274,7 +273,10 @@ if( (ofile[1] != '\0')) {
      dirty=TRUE;
 }
 
-if(directory || !dirty) print_directory(dir);
+if (directory || !dirty) {
+    load_directory(disk, index, dir, sizeof(dir));
+    print_directory(dir);
+}
 
 exit(SUCCESS);
 }   /* main */

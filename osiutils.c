@@ -129,7 +129,7 @@ void get_content_type(uint8_t disk[], struct index_t index[], int track, int sec
 //  2015/12/18 created
 //  2015/12/21 added creation of index and dir structures
 //
-int load_image(char *fname, uint8_t disk[], struct index_t index[])
+int load_image(char *fname, uint8_t disk[], long disk_size, struct index_t index[], long index_size)
 {
 FILE *fp;
 int filesize;       // size of the file we are trying to load
@@ -160,8 +160,10 @@ int tk;
     //     2   -end of sector mark $47, $53
     //      next sector or undefined filler data
 
-    memset(disk,  '\0', FULL_DISK);
-    memset(index, '\0', 77*sizeof(struct index_t));
+
+    memset(disk,  '\0', disk_size);
+    memset(index, '\0', index_size);
+
 
     if((fp=fopen(fname, "r")) == NULL) {
         fprintf(stderr, "%s: error opening file <%s>\n", program_name, fname);
@@ -388,7 +390,7 @@ char ctype[32];
 // -----------------------------------------------------------
 // directory listing 
 //  2016/01/01 created
-void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[])
+void load_directory(uint8_t disk[], struct index_t index[], struct dir_t dir[], long dir_size)
 {
 uint8_t sector_buf[256];        // directory sectors are one page long
 char name[8];
@@ -396,12 +398,11 @@ int start, end;
 int i,j,t;
 int idx=0;
 
-    // fix this size thingy
-    memset(dir, 0, 64*sizeof(struct dir_t));
+    memset(dir, 0, dir_size);
 
     for(t=1; t<=2; t++) {
         if(loadsector(disk, index, sector_buf, DIRTRACK, t) == FAIL) {
-            fprintf(stderr, "%s: seek error. Cannot find track %i\n", program_name, DIRTRACK);
+            fprintf(stderr, "%s: seek error: cannot find track %i, directory not loaded\n", program_name, DIRTRACK);
             exit(1);
         }
 //         if(debug) hex(sector_buf, 0, 0, 256);
@@ -415,7 +416,7 @@ int idx=0;
             } else {
                 for(j=0; j<6; j++) 
                     name[j]=sector_buf[i+j];
-                name[6]= NULL_CHAR;
+                name[6]= '\0';
                 start=bcdtobin( sector_buf[i+6] );
                 end=bcdtobin(sector_buf[i+7]);
                 ddebug_print("%i: %s\t\t%i - %i\n", idx, name, start, end);
@@ -472,7 +473,8 @@ int i;
     if( index[sk_track].sector[sk_sector] == 0) {
         fprintf(stderr, "%s:trying to load non-existing track/sector=%i/%i\n",\
                 program_name, sk_track, sk_sector);
-        exit(1);
+        
+        return FAIL;
     }
 
     // point the disk head to first byte of data (after the sector header)
